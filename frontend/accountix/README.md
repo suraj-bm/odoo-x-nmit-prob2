@@ -1,36 +1,180 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shiv Accounts Cloud - Frontend
+
+A modern Next.js frontend for the Shiv Accounts Cloud accounting system, built with TypeScript, Tailwind CSS, and integrated with Django REST API.
+
+## Features
+
+- **Modern UI**: Built with Next.js 15, React 19, and Tailwind CSS
+- **TypeScript**: Full type safety throughout the application
+- **API Integration**: Complete integration with Django backend APIs
+- **Authentication**: JWT-based authentication with role-based access
+- **Responsive Design**: Mobile-first responsive design
+- **Real-time Updates**: Live data from backend APIs
+- **Charts & Analytics**: Data visualization with Recharts
+
+## Tech Stack
+
+- **Framework**: Next.js 15.5.3
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 4
+- **Charts**: Recharts 3.2.1
+- **State Management**: React Context + Custom Hooks
+- **API Client**: Custom fetch-based client with error handling
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+ 
+- npm or yarn
+- Running Django backend (see backend README)
+
+### Installation
+
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables**
+   Create a `.env.local` file in the root directory:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8000/api
+   NEXT_PUBLIC_APP_NAME=Shiv Accounts Cloud
+   NEXT_PUBLIC_APP_VERSION=1.0.0
+   ```
+
+3. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js app router pages
+│   ├── auth/              # Authentication pages
+│   ├── dashboard/         # Dashboard page
+│   ├── products/          # Products management
+│   ├── contacts/          # Contacts management
+│   ├── purchases/         # Purchase orders
+│   ├── sales/             # Sales orders
+│   ├── reports/           # Reports and analytics
+│   └── layout.tsx         # Root layout
+├── components/            # Reusable UI components
+├── lib/                   # Utilities and configurations
+│   ├── api.ts            # API client configuration
+│   ├── config.ts         # App configuration
+│   ├── contexts/         # React contexts
+│   ├── hooks/            # Custom React hooks
+│   └── services/         # API service functions
+└── styles/               # Global styles
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API Integration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The frontend is fully integrated with the Django backend APIs:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Authentication
+- JWT token-based authentication
+- Automatic token refresh
+- Role-based access control
+- Protected routes
 
-## Learn More
+### API Services
+- **Auth**: Login, register, profile management
+- **Contacts**: Customer and vendor management
+- **Products**: Product catalog and inventory
+- **Transactions**: Purchase orders, sales orders, invoices
+- **Reports**: Balance sheet, P&L, stock reports
 
-To learn more about Next.js, take a look at the following resources:
+### Custom Hooks
+- `useApi`: Generic API call hook with loading/error states
+- `usePaginatedApi`: Paginated data management
+- `useMutation`: Create/update/delete operations
+- `useAuth`: Authentication state management
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Available Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
 
-## Deploy on Vercel
+## Authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app supports three user roles:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Admin**: Full access to all features
+2. **Invoicing User**: Transaction management and read-only reports
+3. **Contact**: Read-only access to own invoices/bills
+
+### Demo Credentials
+- **Admin**: `admin` / `admin123`
+- **Invoicing User**: `invoicing` / `invoicing123`
+
+## API Endpoints
+
+The frontend connects to these backend endpoints:
+
+- `GET /api/master/contacts/` - List contacts
+- `GET /api/master/products/` - List products
+- `GET /api/transactions/purchase-orders/` - Purchase orders
+- `GET /api/transactions/sales-orders/` - Sales orders
+- `GET /api/reports/reports/balance_sheet/` - Balance sheet
+- And many more...
+
+## Development
+
+### Adding New Pages
+1. Create a new directory in `src/app/`
+2. Add a `page.tsx` file
+3. Use the API services from `src/lib/services/`
+4. Implement with custom hooks for state management
+
+### Adding New API Services
+1. Define types in the appropriate service file
+2. Add API functions using the `apiClient`
+3. Export from the service file
+4. Use in components with custom hooks
+
+### Styling
+- Uses Tailwind CSS for styling
+- Custom components in `src/components/`
+- Responsive design patterns
+- Dark/light mode support (configurable)
+
+## Deployment
+
+### Build for Production
+```bash
+npm run build
+```
+
+### Environment Variables for Production
+```env
+NEXT_PUBLIC_API_URL=https://your-api-domain.com/api
+NEXT_PUBLIC_APP_NAME=Shiv Accounts Cloud
+NEXT_PUBLIC_APP_VERSION=1.0.0
+```
+
+### Deploy to Vercel
+1. Connect your GitHub repository to Vercel
+2. Set environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.

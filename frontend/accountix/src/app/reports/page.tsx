@@ -91,7 +91,7 @@ const ReportsPage = () => {
             <main className="flex-1 p-8 overflow-y-auto">
                 <header className="pb-6">
                     <h1 className="text-3xl font-bold text-gray-800">Financial Reports</h1>
-                    <p className="text-gray-600">Review your company's financial performance.</p>
+                    <p className="text-gray-600">Review your company&apos;s financial performance.</p>
                 </header>
                 
                 {/* Report Filters */}
@@ -125,7 +125,7 @@ const ReportsPage = () => {
                                 <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Liabilities & Equity</h3>
                                  <div className="space-y-2 text-gray-700">
                                     <div className="flex justify-between"><span>Creditors</span><span>$8,765.20</span></div>
-                                    <div className="flex justify-between"><span>Owner's Capital</span><span>$71,300.00</span></div>
+                                    <div className="flex justify-between"><span>Owner&apos;s Capital</span><span>$71,300.00</span></div>
                                     <div className="flex justify-between"><span>Retained Earnings</span><span>$23,475.55</span></div>
                                     <div className="flex justify-between font-bold mt-2 pt-2 border-t"><span>Total Liabilities & Equity</span><span>$103,540.75</span></div>
                                 </div>
