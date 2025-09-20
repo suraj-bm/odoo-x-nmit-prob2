@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Sidebar from '@/components/sidebar'; // Assuming Sidebar is in a components folder
 
 // Mock data for contacts
 const contacts = [
@@ -50,6 +51,7 @@ const contacts = [
 const ContactsPage = () => {
     return (
         <div className="flex h-screen bg-gray-100 font-sans">
+            <Sidebar activePage="contact" />
 
             {/* Main content */}
             <main className="flex-1 p-8 overflow-y-auto">
