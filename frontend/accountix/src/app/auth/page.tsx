@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
+
 export default function AuthPage() {
   const { login, loading, error } = useAuth();
   const router = useRouter();

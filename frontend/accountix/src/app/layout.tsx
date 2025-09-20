@@ -30,7 +30,6 @@ export default function RootLayout({
         <AuthProvider>
           {/* Sidebar as a sibling to the main content */}
           <div className="flex h-screen">
-            <Sidebar activePage="dashboard" />
             <main className="flex-1 overflow-y-auto">{children}</main>
           </div>
         </AuthProvider>
