@@ -56,3 +56,12 @@ class StockReportSerializer(serializers.Serializer):
     total_value = serializers.DecimalField(max_digits=15, decimal_places=2)
     minimum_stock = serializers.DecimalField(max_digits=15, decimal_places=2)
     is_low_stock = serializers.BooleanField()
+
+class RealTimePOSerializer(serializers.Serializer):
+    po_number = serializers.CharField()
+    supplier = serializers.CharField()
+    order_date = serializers.DateField()
+    expected_date = serializers.DateField(allow_null=True)
+    status = serializers.CharField()
+    total_quantity = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_value = serializers.DecimalField(max_digits=15, decimal_places=2)

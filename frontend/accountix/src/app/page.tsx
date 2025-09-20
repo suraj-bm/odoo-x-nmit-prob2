@@ -26,8 +26,8 @@ const Home= () => {
                         <a href="#contact" className="text-gray-600 hover:text-indigo-600">Contact</a>
                     </nav>
                     <div>
-                        <a href="/dashboard" className="text-gray-600 hover:text-indigo-600 mr-4">Login</a>
-                        <a href="#" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
+                        <a href="/loginpage" className="text-gray-600 hover:text-indigo-600 mr-4">Login</a>
+                        <a href="/loginpage" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
                             Sign Up
                         </a>
                     </div>

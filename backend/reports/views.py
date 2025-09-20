@@ -8,6 +8,8 @@ from django.db.models import Sum, Q, F
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .models import StockLedger, LedgerEntries
+from transactions.models import PurchaseOrder
+
 from .serializers import (
     StockLedgerSerializer, LedgerEntriesSerializer,
     BalanceSheetSerializer, ProfitLossSerializer, StockReportSerializer
@@ -39,6 +41,7 @@ class LedgerEntriesViewSet(viewsets.ReadOnlyModelViewSet):
 
 class ReportsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    
     
     @action(detail=False, methods=['get'])
     def balance_sheet(self, request):
@@ -203,3 +206,35 @@ class ReportsViewSet(viewsets.ViewSet):
         
         serializer = StockReportSerializer(stock_data, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def real_time_purchase_orders(self, request):
+        """
+        Get all purchase orders with their current stock impact
+        """
+        # Only confirmed/received POs
+        purchase_orders = PurchaseOrder.objects.filter(
+            status__in=['confirmed', 'received']
+        ).order_by('-order_date')
+
+        data = []
+
+        for po in purchase_orders:
+            # Aggregate stock ledger entries for this PO
+            ledger_entries = StockLedger.objects.filter(
+                purchase_order=po
+            )
+            total_quantity = ledger_entries.aggregate(total=Sum('quantity'))['total'] or 0
+            total_value = ledger_entries.aggregate(total=Sum('total_value'))['total'] or 0
+
+            data.append({
+                'po_number': po.po_number,
+                'supplier': po.supplier.name,
+                'order_date': po.order_date,
+                'expected_date': po.expected_date,
+                'status': po.status,
+                'total_quantity': total_quantity,
+                'total_value': total_value,
+            })
+
+        return Response(data)

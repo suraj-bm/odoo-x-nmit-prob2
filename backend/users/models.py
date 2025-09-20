@@ -9,7 +9,7 @@ class User(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('invoicing_user', 'Invoicing User'),
-        ('contact', 'Contact'),
+        ('contact', 'Customer'),
     ]
     
     role = models.CharField(

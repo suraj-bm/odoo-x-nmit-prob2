@@ -215,3 +215,77 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Sum
+from django.utils import timezone
+from users.models import User
+from .models import PurchaseOrder, VendorBill
+from datetime import datetime
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_kpi(request):
+    """Return KPI values for the dashboard"""
+    total_revenue = PurchaseOrder.objects.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_expenses = VendorBill.objects.aggregate(total=Sum('total_amount'))['total'] or 0
+    net_profit = total_revenue - total_expenses
+
+    current_month = datetime.now().month
+    new_customers = User.objects.filter(date_joined__month=current_month).count()
+
+    return Response({
+        'totalRevenue': total_revenue,
+        'totalExpenses': total_expenses,
+        'netProfit': net_profit,
+        'newCustomers': new_customers,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def revenue_expense_chart(request):
+    """Return revenue vs expenses data grouped by month"""
+    data = []
+    for month in range(1, 13):
+        revenue = PurchaseOrder.objects.filter(po_date__month=month).aggregate(total=Sum('total_amount'))['total'] or 0
+        expenses = VendorBill.objects.filter(invoice_date__month=month).aggregate(total=Sum('total_amount'))['total'] or 0
+        data.append({
+            'name': datetime(2025, month, 1).strftime('%b'),  # Month abbreviation
+            'revenue': revenue,
+            'expenses': expenses
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_transactions(request):
+    """Return latest 5 transactions from purchase orders and vendor bills"""
+    po_list = PurchaseOrder.objects.order_by('-po_date')[:5]
+    bills_list = VendorBill.objects.order_by('-invoice_date')[:5]
+
+    transactions = []
+
+    for po in po_list:
+        transactions.append({
+            'id': po.po_number,
+            'type': 'Purchase Order',
+            'amount': po.total_amount,
+            'status': po.status,
+            'date': po.po_date
+        })
+
+    for bill in bills_list:
+        transactions.append({
+            'id': bill.bill_number,
+            'type': 'Vendor Bill',
+            'amount': bill.total_amount,
+            'status': bill.status,
+            'date': bill.invoice_date
+        })
+
+    # Sort by date descending and take top 5
+    transactions = sorted(transactions, key=lambda x: x['date'], reverse=True)[:5]
+    return Response(transactions)

@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny
+
 from django.db import models
 from django.utils import timezone
 from .models import Contact, Product, ProductCategory, Tax, ChartOfAccounts
@@ -151,3 +154,54 @@ class ProductViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(product)
         return Response(serializer.data)
+# master/views.py
+from django.shortcuts import render, redirect
+from .forms import ProductForm
+
+# master/api_views.py
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Product
+from .serializers import ProductSerializer
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_product_api(request):
+    serializer = ProductSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'POST'])
+def products_api(request):
+    if request.method == 'GET':
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [AllowAny]  # <- temporarily allow unauthenticated requests
+from rest_framework import generics
+from .models import ChartOfAccounts
+from .serializers import ChartOfAccountsSerializer
+
+class ChartOfAccountsListCreateAPIView(generics.ListCreateAPIView):
+    queryset = ChartOfAccounts.objects.all()
+    serializer_class = ChartOfAccountsSerializer
+
+class ChartOfAccountsRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ChartOfAccounts.objects.all()
+    serializer_class = ChartOfAccountsSerializer
