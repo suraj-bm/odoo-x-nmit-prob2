@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models.signals import post_save
 from decimal import Decimal
 from master.models import Contact, Product, ProductCategory, Tax, ChartOfAccounts
 from transactions.models import PurchaseOrder, PurchaseOrderItem, VendorBill
@@ -36,8 +38,8 @@ class Command(BaseCommand):
         # Create products
         self.create_products()
         
-        # Create sample transactions
-        self.create_sample_transactions()
+        # Skip sample transactions for now to avoid signal recursion
+        # self.create_sample_transactions()
         
         self.stdout.write(
             self.style.SUCCESS('Successfully seeded data!')
@@ -180,7 +182,7 @@ class Command(BaseCommand):
         
         products_data = [
             {'name': 'Laptop', 'sku': 'LAP001', 'description': 'High-performance laptop', 'category': categories[0], 'hsn_code': '8471', 'sales_price': Decimal('50000.00'), 'purchase_price': Decimal('45000.00'), 'sales_tax': taxes[2], 'purchase_tax': taxes[2], 'current_stock': Decimal('10.00'), 'minimum_stock': Decimal('2.00')},
-            {'name': 'Office Chair', 'sku': 'CHAIR001', 'description': 'Ergonomic office chair', 'category': categories[2], 'hsn_code': '9401', 'sales_price': Decimal('8000.00'), 'purchase_price': Decimal('6000.00'), 'sales_tax': Decimal('18.00'), 'purchase_tax': taxes[2], 'current_stock': Decimal('15.00'), 'minimum_stock': Decimal('3.00')},
+            {'name': 'Office Chair', 'sku': 'CHAIR001', 'description': 'Ergonomic office chair', 'category': categories[2], 'hsn_code': '9401', 'sales_price': Decimal('8000.00'), 'purchase_price': Decimal('6000.00'), 'sales_tax': taxes[2], 'purchase_tax': taxes[2], 'current_stock': Decimal('15.00'), 'minimum_stock': Decimal('3.00')},
             {'name': 'Notebook', 'sku': 'NOTE001', 'description': 'A4 size notebook', 'category': categories[1], 'hsn_code': '4820', 'sales_price': Decimal('50.00'), 'purchase_price': Decimal('30.00'), 'sales_tax': taxes[0], 'purchase_tax': taxes[0], 'current_stock': Decimal('100.00'), 'minimum_stock': Decimal('20.00')},
             {'name': 'Pen Set', 'sku': 'PEN001', 'description': 'Ballpoint pen set', 'category': categories[1], 'hsn_code': '9608', 'sales_price': Decimal('200.00'), 'purchase_price': Decimal('120.00'), 'sales_tax': taxes[0], 'purchase_tax': taxes[0], 'current_stock': Decimal('50.00'), 'minimum_stock': Decimal('10.00')},
             {'name': 'T-Shirt', 'sku': 'TSHIRT001', 'description': 'Cotton t-shirt', 'category': categories[4], 'hsn_code': '6109', 'sales_price': Decimal('500.00'), 'purchase_price': Decimal('300.00'), 'sales_tax': taxes[1], 'purchase_tax': taxes[1], 'current_stock': Decimal('25.00'), 'minimum_stock': Decimal('5.00')},
