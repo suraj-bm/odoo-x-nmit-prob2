@@ -239,7 +239,11 @@ MAX_DIGITS = 15
 # Email settings (for production)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Logging
+# Loggingimport os
+import os
+LOG_DIR = BASE_DIR / 'logs'
+os.makedirs(LOG_DIR, exist_ok=True)  # create folder if it doesn't exist
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -247,7 +251,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
+            'filename': LOG_DIR / 'django.log',
         },
         'console': {
             'level': 'INFO',

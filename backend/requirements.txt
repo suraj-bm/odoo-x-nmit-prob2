@@ -10,3 +10,5 @@ pytest-django==4.8.0
 black==24.4.2
 isort==5.13.2
 flake8==7.0.0
+#in case of any dependencies missing pip install --upgrade setuptools
+django-filter==25.1
