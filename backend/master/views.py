@@ -76,7 +76,7 @@ class ChartOfAccountsViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['category', 'is_active', 'sales_tax', 'purchase_tax']
     search_fields = ['name', 'sku', 'description', 'hsn_code']

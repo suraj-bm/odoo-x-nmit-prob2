@@ -47,8 +47,8 @@ function LoginForm() {
         // Backend sends serializer errors
         setError(data.non_field_errors ? data.non_field_errors[0] : 'Login failed');
       } else {
-        localStorage.setItem('accessToken', data.tokens.access);
-        localStorage.setItem('refreshToken', data.tokens.refresh);
+        localStorage.setItem('auth_token', data.tokens.access);
+        localStorage.setItem('refresh_token', data.tokens.refresh);
         window.location.href = '/dashboard';
       }
     } catch (err) {

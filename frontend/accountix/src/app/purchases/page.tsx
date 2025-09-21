@@ -17,6 +17,8 @@ interface PurchaseOrder {
   status: string;
   total_amount: number | string;
   po_date: string;
+  expected_delivery_date?: string;
+  notes?: string;
   items?: PurchaseOrderItem[];
 }
 
@@ -39,23 +41,35 @@ const PurchasesPage = () => {
   const [products, setProducts] = useState<{ id: string; name: string; sales_price: number }[]>([]);
   const [taxes, setTaxes] = useState<{ id: string; name: string; rate: number }[]>([]);
 
-  const token = localStorage.getItem('accessToken');
-  const api = axios.create({
-    baseURL: 'http://localhost:8000/api/transactions/',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // API client will be initialized in useEffect
+  const [api, setApi] = useState<any>(null);
 
+  // Initialize API client on client side
   useEffect(() => {
-    fetchPurchaseOrders();
-    fetchVendors();
-    fetchProducts();
-    fetchTaxes();
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const apiClient = axios.create({
+        baseURL: 'http://localhost:8000/api/',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setApi(apiClient);
+    }
   }, []);
 
+  useEffect(() => {
+    if (api) {
+      fetchPurchaseOrders();
+      fetchVendors();
+      fetchProducts();
+      fetchTaxes();
+    }
+  }, [api]);
+
   const fetchPurchaseOrders = async () => {
+    if (!api) return;
     setLoading(true);
     try {
-      const res = await api.get('purchase-orders/');
+      const res = await api.get('/transactions/purchase-orders/');
       setPurchaseOrders(Array.isArray(res.data) ? res.data : res.data.results);
     } catch (err) {
       console.error(err);
@@ -66,8 +80,9 @@ const PurchasesPage = () => {
   };
 
   const fetchVendors = async () => {
+    if (!api) return;
     try {
-      const res = await api.get('master-contacts/?contact_type=vendor');
+      const res = await api.get('/master/contacts/?contact_type=vendor');
       setVendors(res.data.results || res.data);
     } catch (err) {
       console.error(err);
@@ -75,8 +90,9 @@ const PurchasesPage = () => {
   };
 
   const fetchProducts = async () => {
+    if (!api) return;
     try {
-      const res = await api.get('master-products/');
+      const res = await api.get('/master/products/');
       setProducts(res.data.results || res.data);
     } catch (err) {
       console.error(err);
@@ -84,8 +100,9 @@ const PurchasesPage = () => {
   };
 
   const fetchTaxes = async () => {
+    if (!api) return;
     try {
-      const res = await api.get('master-taxes/');
+      const res = await api.get('/master/taxes/');
       setTaxes(res.data.results || res.data);
     } catch (err) {
       console.error(err);
@@ -114,9 +131,13 @@ const PurchasesPage = () => {
     setForm({ ...form, [name]: value });
   };
 
-  const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: any) => {
+  const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: string | number) => {
     const newItems = [...form.items];
-    newItems[index][field] = field === 'quantity' || field === 'unit_price' ? Number(value) : value;
+    if (field === 'quantity' || field === 'unit_price') {
+      newItems[index][field] = Number(value);
+    } else {
+      (newItems[index] as any)[field] = value;
+    }
     setForm({ ...form, items: newItems });
   };
 
