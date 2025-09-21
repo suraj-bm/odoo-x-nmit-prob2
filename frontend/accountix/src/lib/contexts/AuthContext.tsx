@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, authApi } from '../services/auth';
-import { ApiError } from '../api';
+import { ApiError, apiClient } from '../api';
 
 interface AuthContextType {
   user: User | null;
@@ -47,17 +47,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Check if user is authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
+      // Only run on client side
+      if (typeof window === 'undefined') {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          const currentUser = await authApi.getCurrentUser();
-          setUser(currentUser);
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+        console.log('checkAuth - token exists:', !!token);
+        
+        if (!token) {
+          console.log('No token found, user not authenticated');
+          setUser(null);
+          setLoading(false);
+          return;
         }
-    } catch {
-      // Token is invalid, clear it
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('refresh_token');
-    } finally {
+
+        // Try to validate the token by getting user profile
+        console.log('Validating token...');
+        apiClient.setToken(token);
+        const currentUser = await authApi.getCurrentUser();
+        console.log('User authenticated successfully:', currentUser);
+        setUser(currentUser);
+        
+      } catch (error) {
+        console.log('Token validation failed:', error);
+        // Token is invalid, clear all token variations
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('refreshToken');
+        setUser(null);
+      } finally {
+        console.log('checkAuth completed, loading set to false');
         setLoading(false);
       }
     };
@@ -69,12 +92,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       setError(null);
+      console.log('Starting login process...');
       const response = await authApi.login({ username, password });
+      console.log('Login successful, setting user:', response.user);
+      
+      // Store tokens with consistent keys
+      localStorage.setItem('auth_token', response.tokens.access);
+      localStorage.setItem('accessToken', response.tokens.access);
+      localStorage.setItem('refresh_token', response.tokens.refresh);
+      localStorage.setItem('refreshToken', response.tokens.refresh);
+      
+      console.log('Tokens stored:', {
+        auth_token: localStorage.getItem('auth_token') ? 'exists' : 'missing',
+        accessToken: localStorage.getItem('accessToken') ? 'exists' : 'missing'
+      });
+      
+      // Set user state
       setUser(response.user);
       
-      // Store refresh token
-      localStorage.setItem('refresh_token', response.tokens.refresh);
+      console.log('User state set, authentication should be complete');
+      // Don't redirect here - let the login page handle it
+      
     } catch (err) {
+      console.error('Login failed:', err);
       const apiError = err instanceof ApiError ? err : new ApiError('Login failed', 0);
       setError(apiError);
       throw apiError;
@@ -100,8 +140,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await authApi.register(userData);
       setUser(response.user);
       
-      // Store refresh token
+      // Store tokens with consistent keys
+      localStorage.setItem('auth_token', response.tokens.access);
+      localStorage.setItem('accessToken', response.tokens.access);
       localStorage.setItem('refresh_token', response.tokens.refresh);
+      localStorage.setItem('refreshToken', response.tokens.refresh);
+      
+      // Redirect to dashboard after successful registration
+      window.location.href = '/dashboard';
     } catch (err) {
       const apiError = err instanceof ApiError ? err : new ApiError('Registration failed', 0);
       setError(apiError);
@@ -120,6 +166,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setUser(null);
       setError(null);
+      // Clear all token variations
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refreshToken');
+      // Redirect to login page
+      window.location.href = '/loginpage';
     }
   };
 

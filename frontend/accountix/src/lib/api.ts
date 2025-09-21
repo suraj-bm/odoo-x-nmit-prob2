@@ -81,15 +81,35 @@ class ApiClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(
-          errorData.message || `HTTP error! status: ${response.status}`,
-          response.status,
-          errorData
-        );
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          console.warn('Could not parse error response as JSON');
+        }
+        
+        
+        // Provide more specific error messages based on status code
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        if (response.status === 401) {
+          errorMessage = 'Authentication failed. Please login again.';
+        } else if (response.status === 403) {
+          errorMessage = 'Access forbidden.';
+        } else if (response.status === 404) {
+          errorMessage = 'API endpoint not found.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+          errorMessage = String(errorData.message);
+        } else if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
+          errorMessage = String(errorData.detail);
+        }
+        
+        throw new ApiError(errorMessage, response.status, errorData);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -103,15 +123,20 @@ class ApiClient {
 
   // HTTP Methods
   async get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
-    const url = new URL(`${this.baseURL}${endpoint}`);
+    let fullEndpoint = endpoint;
     if (params) {
+      const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
+          searchParams.append(key, String(value));
         }
       });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        fullEndpoint += (endpoint.includes('?') ? '&' : '?') + queryString;
+      }
     }
-    return this.request<T>(url.pathname + url.search);
+    return this.request<T>(fullEndpoint);
   }
 
   async post<T>(endpoint: string, data?: unknown): Promise<T> {

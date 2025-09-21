@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/sidebar';
-import axios from 'axios';
+import { apiClient } from '@/lib/api';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface PurchaseOrderItem {
   product: string;
@@ -23,6 +24,7 @@ interface PurchaseOrder {
 }
 
 const PurchasesPage = () => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -41,36 +43,25 @@ const PurchasesPage = () => {
   const [products, setProducts] = useState<{ id: string; name: string; sales_price: number }[]>([]);
   const [taxes, setTaxes] = useState<{ id: string; name: string; rate: number }[]>([]);
 
-  // API client will be initialized in useEffect
-  const [api, setApi] = useState<any>(null);
-
-  // Initialize API client on client side
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const apiClient = axios.create({
-        baseURL: 'http://localhost:8000/api/',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setApi(apiClient);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (api) {
+    if (isAuthenticated && !authLoading) {
       fetchPurchaseOrders();
       fetchVendors();
       fetchProducts();
       fetchTaxes();
     }
-  }, [api]);
+  }, [isAuthenticated, authLoading]);
 
   const fetchPurchaseOrders = async () => {
-    if (!api) return;
     setLoading(true);
     try {
-      const res = await api.get('/transactions/purchase-orders/');
-      setPurchaseOrders(Array.isArray(res.data) ? res.data : res.data.results);
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
+      const res = await apiClient.get<PurchaseOrder[]>('/transactions/purchase-orders/');
+      setPurchaseOrders(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch purchase orders.');
@@ -80,30 +71,42 @@ const PurchasesPage = () => {
   };
 
   const fetchVendors = async () => {
-    if (!api) return;
     try {
-      const res = await api.get('/master/contacts/?contact_type=vendor');
-      setVendors(res.data.results || res.data);
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
+      const res = await apiClient.get<{ id: string; name: string }[]>('/master/contacts/?contact_type=vendor');
+      setVendors(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error(err);
     }
   };
 
   const fetchProducts = async () => {
-    if (!api) return;
     try {
-      const res = await api.get('/master/products/');
-      setProducts(res.data.results || res.data);
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
+      const res = await apiClient.get<{ id: string; name: string; sales_price: number }[]>('/master/products/');
+      setProducts(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error(err);
     }
   };
 
   const fetchTaxes = async () => {
-    if (!api) return;
     try {
-      const res = await api.get('/master/taxes/');
-      setTaxes(res.data.results || res.data);
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
+      const res = await apiClient.get<{ id: string; name: string; rate: number }[]>('/master/taxes/');
+      setTaxes(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error(err);
     }
@@ -147,12 +150,17 @@ const PurchasesPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
       if (editingOrder) {
-        const res = await api.put(`purchase-orders/${editingOrder.id}/`, form);
-        setPurchaseOrders(prev => prev.map(po => (po.id === editingOrder.id ? res.data : po)));
+        const res = await apiClient.put<PurchaseOrder>(`/transactions/purchase-orders/${editingOrder.id}/`, form);
+        setPurchaseOrders(prev => prev.map(po => (po.id === editingOrder.id ? res : po)));
       } else {
-        const res = await api.post('purchase-orders/', form);
-        setPurchaseOrders(prev => [...prev, res.data]);
+        const res = await apiClient.post<PurchaseOrder>('/transactions/purchase-orders/', form);
+        setPurchaseOrders(prev => [...prev, res]);
       }
       setShowModal(false);
     } catch (err) {
@@ -164,13 +172,46 @@ const PurchasesPage = () => {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this purchase order?')) return;
     try {
-      await api.delete(`purchase-orders/${id}/`);
+      // Ensure token is set before making API call
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.setToken(token);
+      }
+      await apiClient.delete(`/transactions/purchase-orders/${id}/`);
       setPurchaseOrders(prev => prev.filter(po => po.id !== id));
     } catch (err) {
       console.error(err);
       setError('Failed to delete purchase order.');
     }
   };
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50 font-sans">
+        <Sidebar activePage="purchases" />
+        <main className="flex-1 p-8 overflow-y-auto flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen bg-gray-50 font-sans">
+        <Sidebar activePage="purchases" />
+        <main className="flex-1 p-8 overflow-y-auto flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600">Please log in to access this page.</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">

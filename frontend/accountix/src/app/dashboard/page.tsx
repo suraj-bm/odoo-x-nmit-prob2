@@ -6,7 +6,9 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import Sidebar from '@/components/sidebar';
+import MobileNav from '@/components/MobileNav';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import axios, { AxiosError } from 'axios';
 
 // Color palette for PieChart
@@ -36,10 +38,12 @@ interface Transaction {
 interface SalesCategory {
   name: string;
   value: number;
+  [key: string]: string | number;
 }
 
 const DashboardPage = () => {
   const router = useRouter();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [kpiData, setKpiData] = useState<KpiData>({
     totalRevenue: 0,
@@ -53,11 +57,31 @@ const DashboardPage = () => {
   const [salesByCategoryData, setSalesByCategoryData] = useState<SalesCategory[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
+    console.log('Dashboard useEffect - authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
+    console.log('localStorage tokens:', {
+      auth_token: localStorage.getItem('auth_token') ? 'exists' : 'missing',
+      accessToken: localStorage.getItem('accessToken') ? 'exists' : 'missing'
+    });
+    
+    if (authLoading) {
+      console.log('Still loading auth...');
+      return; // Wait for auth to load
+    }
+    
+    if (!isAuthenticated) {
+      console.log('Not authenticated, redirecting to login');
       router.push('/loginpage');
       return;
     }
+
+    // Get token for API calls
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('auth_token');
+    if (!token) {
+      console.log('No token found for API calls');
+      return;
+    }
+
+    console.log('Dashboard loading data...');
 
     const api = axios.create({
       baseURL: 'http://127.0.0.1:8000/api/transactions/',
@@ -123,12 +147,45 @@ const DashboardPage = () => {
     fetchRevenueExpense();
     fetchRecentTransactions();
     fetchSalesByCategory();
-  }, [router]);
+  }, [router, isAuthenticated, authLoading]);
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50 font-sans">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <Sidebar activePage="dashboard" />
+        </div>
+        
+        {/* Mobile Navigation */}
+        <div className="lg:hidden">
+          <MobileNav activePage="dashboard" />
+        </div>
+        
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
-      <Sidebar activePage="dashboard" />
-      <main className="flex-1 p-8 overflow-y-auto">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block">
+        <Sidebar activePage="dashboard" />
+      </div>
+      
+      {/* Mobile Navigation */}
+      <div className="lg:hidden">
+        <MobileNav activePage="dashboard" />
+      </div>
+      
+      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         <header className="pb-6">
           <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
           <p className="text-gray-600">Welcome back!</p>
@@ -236,3 +293,4 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+

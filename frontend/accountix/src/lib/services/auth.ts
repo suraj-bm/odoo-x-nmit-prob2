@@ -50,14 +50,14 @@ export interface ChangePasswordRequest {
 export const authApi = {
   // Login user
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/users/users/login/', credentials);
+    const response = await apiClient.post<AuthResponse>('/users/login/', credentials);
     apiClient.setToken(response.tokens.access);
     return response;
   },
 
   // Register user
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/users/users/register/', userData);
+    const response = await apiClient.post<AuthResponse>('/users/register/', userData);
     apiClient.setToken(response.tokens.access);
     return response;
   },
@@ -69,7 +69,7 @@ export const authApi = {
       : null;
     
     if (refreshToken) {
-      await apiClient.post('/users/users/logout/', { refresh_token: refreshToken });
+      await apiClient.post('/users/logout/', { refresh_token: refreshToken });
     }
     
     apiClient.clearToken();
@@ -88,7 +88,7 @@ export const authApi = {
       throw new Error('No refresh token available');
     }
 
-    const response = await apiClient.post<{ access: string }>('/users/users/refresh_token/', {
+    const response = await apiClient.post<{ access: string }>('/users/refresh_token/', {
       refresh_token: refreshToken,
     });
 
@@ -98,16 +98,18 @@ export const authApi = {
 
   // Get current user profile
   async getCurrentUser(): Promise<User> {
-    return apiClient.get<User>('/users/users/me/');
+    return apiClient.get<User>('/users/profile/');
   },
 
   // Update current user profile
   async updateProfile(userData: Partial<User>): Promise<User> {
-    return apiClient.put<User>('/users/users/update_me/', userData);
+    // TODO: Implement profile update endpoint in backend
+    throw new Error('Profile update not implemented yet');
   },
 
   // Change password
   async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
-    await apiClient.post('/users/users/change_my_password/', passwordData);
+    // TODO: Implement change password endpoint in backend
+    throw new Error('Change password not implemented yet');
   },
 };

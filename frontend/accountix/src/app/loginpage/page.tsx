@@ -1,9 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function AuthForms() {
   const [isLogin, setIsLogin] = useState(true);
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -29,32 +40,23 @@ function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
- 
-
+  const { login, loading } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/users/login/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Backend sends serializer errors
-        setError(data.non_field_errors ? data.non_field_errors[0] : 'Login failed');
-      } else {
-        localStorage.setItem('auth_token', data.tokens.access);
-        localStorage.setItem('refresh_token', data.tokens.refresh);
-        window.location.href = '/dashboard';
-      }
+      await login(username, password);
+      // Wait a moment for state to update, then redirect
+      console.log('Login completed, waiting for state update...');
+      setTimeout(() => {
+        console.log('Redirecting to dashboard...');
+        router.push('/dashboard');
+      }, 100);
     } catch (err) {
-      setError('Login failed');
+      setError('Login failed. Please check your credentials.');
     }
   };
 
@@ -89,9 +91,10 @@ function LoginForm() {
 
       <button
         type="submit"
-        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        disabled={loading}
+        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Sign in
+        {loading ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
   );
@@ -104,7 +107,7 @@ function RegisterForm() {
   email: '',
   password: '',
   confirmPassword: '',
-  role: 'contact',
+  role: 'contact' as 'admin' | 'invoicing_user' | 'contact',
   phone: '',
   address: '',
 });
@@ -112,6 +115,7 @@ function RegisterForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const { register, loading } = useAuth();
 
   // Check username availability
   useEffect(() => {
@@ -155,21 +159,20 @@ function RegisterForm() {
     }
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/users/register/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      await register({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        password_confirm: formData.confirmPassword,
+        first_name: formData.username, // Using username as first name for simplicity
+        last_name: '',
+        role: formData.role,
+        phone: formData.phone,
+        address: formData.address,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(JSON.stringify(data));
-      } else {
-        setSuccess('Registration successful! You can now log in.');
-      }
+      // Redirect is handled in the AuthContext
     } catch (err) {
-      setError('Registration failed');
+      setError('Registration failed. Please try again.');
     }
   };
 
@@ -275,9 +278,10 @@ function RegisterForm() {
 
       <button
         type="submit"
-        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        disabled={loading}
+        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Register
+        {loading ? 'Registering...' : 'Register'}
       </button>
     </form>
   );
