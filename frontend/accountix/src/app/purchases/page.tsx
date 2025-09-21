@@ -3,31 +3,28 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from '@/components/sidebar';
 import MobileNav from '@/components/MobileNav';
+import PurchaseOrderForm from '@/components/PurchaseOrderForm';
+import PurchaseDashboard from '@/components/PurchaseDashboard';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import axios from 'axios';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from 'recharts';
-
-// Color palette
-const COLORS = ['#6366F1', '#818CF8', '#A5B4FC', '#C7D2FE', '#E0E7FF'];
+import { apiClient } from '@/lib/api';
 
 interface PurchaseOrderItem {
   id: number;
-  product: string;
-  product_id: number;
+  product: number;
+  product_name: string;
   quantity: number;
   unit_price: number;
   tax: number;
-  total: number;
+  tax_amount: number;
+  line_total: number;
 }
 
 interface PurchaseOrder {
   id: number;
-  vendor: string;
-  vendor_id: number;
+  po_number: string;
+  vendor: number;
+  vendor_name: string;
   status: 'draft' | 'sent' | 'confirmed' | 'received' | 'cancelled';
   payment_status: 'unpaid' | 'partial' | 'paid';
   total_amount: number;
@@ -46,20 +43,29 @@ interface Vendor {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  gst_number?: string;
+  pan_number?: string;
 }
 
 interface Product {
   id: number;
   name: string;
   sku: string;
+  description?: string;
   purchase_price: number;
   category?: string;
+  current_stock?: number;
+  minimum_stock?: number;
 }
 
 interface Tax {
   id: number;
   name: string;
   rate: number;
+  tax_type: string;
 }
 
 const PurchasesPage = () => {
@@ -75,113 +81,44 @@ const PurchasesPage = () => {
   // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   
-  // Live features
+  // Real-time features
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isLive, setIsLive] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30000);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   
-  // Filtering and search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [vendorFilter, setVendorFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
-    start: '',
-    end: ''
-  });
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'vendor' | 'status'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  // View mode
+  const [viewMode, setViewMode] = useState<'dashboard' | 'table'>('dashboard');
   
-  // Form state
-  const [form, setForm] = useState({
-    vendor: '',
-    po_date: new Date().toISOString().split('T')[0],
-    expected_delivery_date: '',
-    notes: '',
-    items: [] as PurchaseOrderItem[],
+  // Filtering and search
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    vendor: 'all',
+    paymentStatus: 'all',
+    dateRange: { start: '', end: '' }
+  });
+  
+  // Sorting and pagination
+  const [sortOptions, setSortOptions] = useState({
+    field: 'created_at' as keyof PurchaseOrder,
+    direction: 'desc' as 'asc' | 'desc'
+  });
+  
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0
   });
 
-  // Mock data for demonstration
-  const mockVendors: Vendor[] = [
-    { id: 1, name: 'ABC Suppliers', email: 'contact@abcsuppliers.com', phone: '+1-555-0123' },
-    { id: 2, name: 'XYZ Manufacturing', email: 'sales@xyz.com', phone: '+1-555-0456' },
-    { id: 3, name: 'Global Electronics', email: 'orders@global.com', phone: '+1-555-0789' },
-    { id: 4, name: 'Office Solutions Inc', email: 'info@office.com', phone: '+1-555-0321' },
-  ];
+  // Bulk operations
+  const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
 
-  const mockProducts: Product[] = [
-    { id: 1, name: 'Office Chair', sku: 'OC-001', purchase_price: 150, category: 'Furniture' },
-    { id: 2, name: 'Laptop', sku: 'LP-002', purchase_price: 1200, category: 'Electronics' },
-    { id: 3, name: 'Desk Lamp', sku: 'DL-003', purchase_price: 45, category: 'Furniture' },
-    { id: 4, name: 'Monitor', sku: 'MN-004', purchase_price: 300, category: 'Electronics' },
-    { id: 5, name: 'Keyboard', sku: 'KB-005', purchase_price: 80, category: 'Electronics' },
-  ];
-
-  const mockTaxes: Tax[] = [
-    { id: 1, name: 'GST', rate: 18 },
-    { id: 2, name: 'VAT', rate: 12 },
-    { id: 3, name: 'Service Tax', rate: 5 },
-  ];
-
-  const mockPurchaseOrders: PurchaseOrder[] = [
-    {
-      id: 1,
-      vendor: 'ABC Suppliers',
-      vendor_id: 1,
-      status: 'confirmed',
-      payment_status: 'unpaid',
-      total_amount: 2500,
-      po_date: '2024-01-15',
-      expected_delivery_date: '2024-01-25',
-      notes: 'Urgent delivery required',
-      items: [
-        { id: 1, product: 'Office Chair', product_id: 1, quantity: 10, unit_price: 150, tax: 18, total: 1770 },
-        { id: 2, product: 'Desk Lamp', product_id: 3, quantity: 5, unit_price: 45, tax: 18, total: 265.5 }
-      ],
-      created_at: '2024-01-15T10:00:00Z',
-      updated_at: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: 2,
-      vendor: 'XYZ Manufacturing',
-      vendor_id: 2,
-      status: 'sent',
-      payment_status: 'partial',
-      total_amount: 4800,
-      po_date: '2024-01-14',
-      expected_delivery_date: '2024-01-30',
-      notes: 'Bulk order discount applied',
-      items: [
-        { id: 3, product: 'Laptop', product_id: 2, quantity: 3, unit_price: 1200, tax: 18, total: 4248 },
-        { id: 4, product: 'Monitor', product_id: 4, quantity: 2, unit_price: 300, tax: 18, total: 708 }
-      ],
-      created_at: '2024-01-14T14:30:00Z',
-      updated_at: '2024-01-14T14:30:00Z'
-    },
-    {
-      id: 3,
-      vendor: 'Global Electronics',
-      vendor_id: 3,
-      status: 'received',
-      payment_status: 'paid',
-      total_amount: 1200,
-      po_date: '2024-01-10',
-      expected_delivery_date: '2024-01-20',
-      received_date: '2024-01-18',
-      notes: 'Delivered on time',
-      items: [
-        { id: 5, product: 'Keyboard', product_id: 5, quantity: 15, unit_price: 80, tax: 18, total: 1416 }
-      ],
-      created_at: '2024-01-10T09:15:00Z',
-      updated_at: '2024-01-18T16:45:00Z'
-    }
-  ];
-
-  // Optimized data fetching
+  // Optimized data fetching with error handling
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) return;
     
@@ -190,62 +127,47 @@ const PurchasesPage = () => {
       const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
       
       if (!token) {
-        // Use mock data
-        setPurchaseOrders(mockPurchaseOrders);
-        setVendors(mockVendors);
-        setProducts(mockProducts);
-        setTaxes(mockTaxes);
-        setLastUpdated(new Date());
-        setConnectionStatus('connected');
+        setConnectionStatus('disconnected');
         return;
       }
 
-      const api = axios.create({
-        baseURL: 'http://localhost:8000/api/',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      apiClient.setToken(token);
 
       const [ordersRes, vendorsRes, productsRes, taxesRes] = await Promise.allSettled([
-        api.get('/transactions/purchase-orders/'),
-        api.get('/master/contacts/?contact_type=vendor'),
-        api.get('/master/products/'),
-        api.get('/master/taxes/')
+        apiClient.get('/transactions/purchase-orders/'),
+        apiClient.get('/master/contacts/?contact_type=vendor'),
+        apiClient.get('/master/products/'),
+        apiClient.get('/master/taxes/')
       ]);
 
       if (ordersRes.status === 'fulfilled') {
-        setPurchaseOrders(ordersRes.value.data.results || ordersRes.value.data);
-      } else {
-        setPurchaseOrders(mockPurchaseOrders);
+        const orders = ordersRes.value.results || ordersRes.value;
+        setPurchaseOrders(Array.isArray(orders) ? orders : []);
+        setPagination(prev => ({ ...prev, total: orders.length }));
       }
 
       if (vendorsRes.status === 'fulfilled') {
-        setVendors(vendorsRes.value.data.results || vendorsRes.value.data);
-      } else {
-        setVendors(mockVendors);
+        const vendorData = vendorsRes.value.results || vendorsRes.value;
+        setVendors(Array.isArray(vendorData) ? vendorData : []);
       }
 
       if (productsRes.status === 'fulfilled') {
-        setProducts(productsRes.value.data.results || productsRes.value.data);
-      } else {
-        setProducts(mockProducts);
+        const productData = productsRes.value.results || productsRes.value;
+        setProducts(Array.isArray(productData) ? productData : []);
       }
 
       if (taxesRes.status === 'fulfilled') {
-        setTaxes(taxesRes.value.data.results || taxesRes.value.data);
-      } else {
-        setTaxes(mockTaxes);
+        const taxData = taxesRes.value.results || taxesRes.value;
+        setTaxes(Array.isArray(taxData) ? taxData : []);
       }
 
       setLastUpdated(new Date());
       setConnectionStatus('connected');
+      setError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
       setConnectionStatus('disconnected');
-      // Fallback to mock data
-      setPurchaseOrders(mockPurchaseOrders);
-      setVendors(mockVendors);
-      setProducts(mockProducts);
-      setTaxes(mockTaxes);
+      setError('Failed to fetch data. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -276,188 +198,136 @@ const PurchasesPage = () => {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Filtered and sorted data
+  // Filtered and sorted data with pagination
   const filteredOrders = useMemo(() => {
-    let filtered = purchaseOrders;
+    let filtered = [...purchaseOrders];
 
-    // Search filter
-    if (searchTerm) {
+    // Apply filters
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(order =>
-        order.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id.toString().includes(searchTerm) ||
-        order.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+        order.po_number?.toLowerCase().includes(searchLower) ||
+        order.vendor_name?.toLowerCase().includes(searchLower) ||
+        order.notes?.toLowerCase().includes(searchLower)
       );
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === statusFilter);
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(order => order.status === filters.status);
     }
 
-    // Vendor filter
-    if (vendorFilter !== 'all') {
-      filtered = filtered.filter(order => order.vendor_id.toString() === vendorFilter);
+    if (filters.vendor !== 'all') {
+      filtered = filtered.filter(order => order.vendor.toString() === filters.vendor);
     }
 
-    // Date range filter
-    if (dateRange.start && dateRange.end) {
+    if (filters.paymentStatus !== 'all') {
+      filtered = filtered.filter(order => order.payment_status === filters.paymentStatus);
+    }
+
+    if (filters.dateRange.start && filters.dateRange.end) {
       filtered = filtered.filter(order => {
         const orderDate = new Date(order.po_date);
-        const startDate = new Date(dateRange.start);
-        const endDate = new Date(dateRange.end);
+        const startDate = new Date(filters.dateRange.start);
+        const endDate = new Date(filters.dateRange.end);
         return orderDate >= startDate && orderDate <= endDate;
       });
     }
 
     // Sort
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      const aValue = a[sortOptions.field];
+      const bValue = b[sortOptions.field];
       
-      switch (sortBy) {
-        case 'date':
-          aValue = new Date(a.po_date);
-          bValue = new Date(b.po_date);
-          break;
-        case 'amount':
-          aValue = a.total_amount;
-          bValue = b.total_amount;
-          break;
-        case 'vendor':
-          aValue = a.vendor;
-          bValue = b.vendor;
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      // Handle undefined and null values
+      if ((aValue === undefined || aValue === null) && (bValue === undefined || bValue === null)) return 0;
+      if (aValue === undefined || aValue === null) return sortOptions.direction === 'asc' ? 1 : -1;
+      if (bValue === undefined || bValue === null) return sortOptions.direction === 'asc' ? -1 : 1;
+      
+      if (aValue < bValue) return sortOptions.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOptions.direction === 'asc' ? 1 : -1;
+      return 0;
     });
 
-    return filtered;
-  }, [purchaseOrders, searchTerm, statusFilter, vendorFilter, dateRange, sortBy, sortOrder]);
+    // Update pagination total
+    setPagination(prev => ({ ...prev, total: filtered.length }));
 
-  // Analytics data
-  const analyticsData = useMemo(() => {
-    const totalAmount = purchaseOrders.reduce((sum, order) => sum + order.total_amount, 0);
-    const statusCounts = purchaseOrders.reduce((acc, order) => {
-      acc[order.status] = (acc[order.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    // Apply pagination
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
     
-    const monthlyData = purchaseOrders.reduce((acc, order) => {
-      const month = new Date(order.po_date).toLocaleDateString('en-US', { month: 'short' });
-      if (!acc[month]) {
-        acc[month] = { month, amount: 0, count: 0 };
-      }
-      acc[month].amount += order.total_amount;
-      acc[month].count += 1;
-      return acc;
-    }, {} as Record<string, { month: string; amount: number; count: number }>);
-
-    return {
-      totalAmount,
-      statusCounts,
-      monthlyData: Object.values(monthlyData),
-      totalOrders: purchaseOrders.length,
-      averageOrderValue: purchaseOrders.length > 0 ? totalAmount / purchaseOrders.length : 0
-    };
-  }, [purchaseOrders]);
+    return filtered.slice(startIndex, endIndex);
+  }, [purchaseOrders, filters, sortOptions, pagination.page, pagination.limit]);
 
   // Form handlers
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSave = async (orderData: any) => {
     try {
-      const newOrder: PurchaseOrder = {
-        id: editingOrder ? editingOrder.id : Date.now(),
-        vendor: vendors.find(v => v.id.toString() === form.vendor)?.name || form.vendor,
-        vendor_id: Number(form.vendor),
-        status: 'draft',
-        payment_status: 'unpaid',
-        total_amount: form.items.reduce((sum, item) => sum + item.total, 0),
-        po_date: form.po_date,
-        expected_delivery_date: form.expected_delivery_date,
-        notes: form.notes,
-        items: form.items,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (!token) throw new Error('No authentication token');
+
+      apiClient.setToken(token);
 
       if (editingOrder) {
-        setPurchaseOrders(prev => prev.map(order => order.id === editingOrder.id ? newOrder : order));
+        // Update existing order
+        const response = await apiClient.put(`/transactions/purchase-orders/${editingOrder.id}/`, orderData);
+        setPurchaseOrders(prev => prev.map(order => 
+          order.id === editingOrder.id ? response : order
+        ));
+        setSuccess('Purchase order updated successfully');
       } else {
-        setPurchaseOrders(prev => [newOrder, ...prev]);
+        // Create new order
+        const response = await apiClient.post('/transactions/purchase-orders/', orderData);
+        setPurchaseOrders(prev => [response, ...prev]);
+        setSuccess('Purchase order created successfully');
       }
 
-      setShowModal(false);
       setEditingOrder(null);
-      setForm({
-        vendor: '',
-        po_date: new Date().toISOString().split('T')[0],
-        expected_delivery_date: '',
-        notes: '',
-        items: [],
-      });
+      setShowForm(false);
     } catch (error) {
       console.error('Error saving purchase order:', error);
+      setError('Failed to save purchase order');
     }
   };
 
-  const handleDelete = (id: number) => {
-    setPurchaseOrders(prev => prev.filter(order => order.id !== id));
-  };
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this purchase order?')) return;
 
-  const handleItemChange = (index: number, field: string, value: any) => {
-    const newItems = [...form.items];
-    
-    if (field === 'product') {
-      const selectedProduct = products.find(p => p.id === Number(value));
-      if (selectedProduct) {
-        newItems[index].product = selectedProduct.name;
-        newItems[index].product_id = selectedProduct.id;
-        newItems[index].unit_price = selectedProduct.purchase_price;
-      }
-    } else if (field === 'quantity') {
-      newItems[index].quantity = Number(value);
-    } else if (field === 'unit_price') {
-      newItems[index].unit_price = Number(value);
-    } else if (field === 'tax') {
-      newItems[index].tax = Number(value);
+    try {
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken');
+      if (!token) throw new Error('No authentication token');
+
+      apiClient.setToken(token);
+      await apiClient.delete(`/transactions/purchase-orders/${id}/`);
+      
+      setPurchaseOrders(prev => prev.filter(order => order.id !== id));
+      setSuccess('Purchase order deleted successfully');
+    } catch (error) {
+      console.error('Error deleting purchase order:', error);
+      setError('Failed to delete purchase order');
     }
-    
-    newItems[index].total = newItems[index].quantity * newItems[index].unit_price * (1 + newItems[index].tax / 100);
-    
-    setForm({ ...form, items: newItems });
   };
 
-  const addItem = () => {
-    setForm({
-      ...form,
-      items: [...form.items, {
-        id: Date.now(),
-        product: '',
-        product_id: 0,
-        quantity: 1,
-        unit_price: 0,
-        tax: 0,
-        total: 0
-      }]
-    });
-  };
+  const exportToCSV = () => {
+    const headers = ['PO Number', 'Vendor', 'Status', 'Payment Status', 'Total Amount', 'PO Date', 'Expected Delivery'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredOrders.map(order => [
+        order.po_number,
+        order.vendor_name,
+        order.status,
+        order.payment_status,
+        order.total_amount,
+        order.po_date,
+        order.expected_delivery_date
+      ].join(','))
+    ].join('\n');
 
-  const removeItem = (index: number) => {
-    setForm({
-      ...form,
-      items: form.items.filter((_, i) => i !== index)
-    });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `purchase-orders-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const getStatusColor = (status: string) => {
@@ -479,7 +349,6 @@ const PurchasesPage = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-
 
   // Show loading while auth is being checked
   if (authLoading) {
@@ -512,138 +381,332 @@ const PurchasesPage = () => {
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
       <Sidebar activePage="purchases" />
-      <main className="flex-1 p-8 overflow-y-auto">
-        <header className="pb-6 flex items-center justify-between">
+      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Purchase Orders</h1>
-            <p className="text-gray-600">Manage your purchase orders.</p>
+            <h1 className="text-3xl font-bold text-gray-900">Purchase Orders</h1>
+            <p className="text-gray-600 mt-1">
+              Manage your purchase orders and vendor relationships
+              {isLive && (
+                <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                  Live
+                </span>
+              )}
+            </p>
           </div>
-          <button
-            className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700"
-            onClick={() => openModal()}
-          >
-            + New Purchase
-          </button>
-        </header>
+          
+          <div className="mt-4 lg:mt-0 flex flex-wrap items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('dashboard')}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'dashboard'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Table
+              </button>
+            </div>
 
-        {/* Table */}
-        {loading ? (
-          <p>Loading...</p>
-        ) : error ? (
-          <p className="text-red-600">{error}</p>
-        ) : purchaseOrders.length === 0 ? (
-          <p>No purchase orders found.</p>
-        ) : (
-          <div className="overflow-x-auto mt-6">
-            <table className="min-w-full bg-white border rounded-lg">
-              <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="px-6 py-3 border-b">ID</th>
-                  <th className="px-6 py-3 border-b">Vendor</th>
-                  <th className="px-6 py-3 border-b">Total</th>
-                  <th className="px-6 py-3 border-b">Status</th>
-                  <th className="px-6 py-3 border-b">Date</th>
-                  <th className="px-6 py-3 border-b">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchaseOrders.map(po => (
-                  <tr key={po.id} className="border-b">
-                    <td className="px-6 py-3">{po.id}</td>
-                    <td className="px-6 py-3">{po.vendor}</td>
-                    <td className="px-6 py-3">${Number(po.total_amount ?? 0).toFixed(2)}</td>
-                    <td className="px-6 py-3">{po.status}</td>
-                    <td className="px-6 py-3">{po.po_date}</td>
-                    <td className="px-6 py-3 space-x-2">
-                      <button className="text-indigo-600 hover:text-indigo-900" onClick={() => openModal(po)}>Edit</button>
-                      <button className="text-red-600 hover:text-red-900" onClick={() => handleDelete(po.id)}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Export Button */}
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Export</span>
+            </button>
+
+            {/* New Purchase Order Button */}
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>New Purchase Order</span>
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-3xl overflow-y-auto max-h-[90vh]">
-              <h2 className="text-xl font-bold mb-4">{editingOrder ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <select name="vendor" value={form.vendor} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" required>
-                  <option value="">Select Vendor</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-                <div className="flex gap-4">
-                  <input type="date" name="po_date" value={form.po_date} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" required />
-                  <input type="date" name="expected_delivery_date" value={form.expected_delivery_date} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
-                </div>
-                <textarea name="notes" value={form.notes} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Notes" />
-
-                {/* Items */}
-                <div>
-                  <h3 className="font-semibold mb-2">Items</h3>
-                  {form.items.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center mb-2">
-                      <select value={item.product} onChange={e => handleItemChange(idx, 'product', e.target.value)} className="px-2 py-1 border rounded-md flex-1" required>
-                        <option value="">Select Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                      <input type="number" min={1} value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="w-20 px-2 py-1 border rounded-md" required />
-                      <input type="number" min={0} step="0.01" value={item.unit_price} onChange={e => handleItemChange(idx, 'unit_price', e.target.value)} className="w-24 px-2 py-1 border rounded-md" required />
-                                            <select
-                        value={item.tax || ''}
-                        onChange={e => handleItemChange(idx, 'tax', e.target.value)}
-                        className="w-28 px-2 py-1 border rounded-md"
-                      >
-                        <option value="">No Tax</option>
-                        {taxes.map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-900 px-2"
-                        onClick={() => removeItem(idx)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="mt-2 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    onClick={addItem}
-                  >
-                    + Add Item
-                  </button>
-                </div>
-
-                {/* Modal actions */}
-                <div className="mt-4 flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
-                    onClick={() => setShowModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    {editingOrder ? 'Update' : 'Create'}
-                  </button>
-                </div>
-              </form>
+        {/* Alerts */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
+
+        {success && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex">
+              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm text-green-800">{success}</p>
+              </div>
+              <button
+                onClick={() => setSuccess(null)}
+                className="ml-auto text-green-400 hover:text-green-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dashboard View */}
+        {viewMode === 'dashboard' && (
+          <PurchaseDashboard purchaseOrders={purchaseOrders} loading={loading} />
+        )}
+
+        {/* Table View */}
+        {viewMode === 'table' && (
+          <div className="space-y-6">
+            {/* Filters */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Search orders..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="received">Received</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Vendor</label>
+                  <select
+                    value={filters.vendor}
+                    onChange={(e) => setFilters(prev => ({ ...prev, vendor: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Vendors</option>
+                    {vendors.map(vendor => (
+                      <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+                  <select
+                    value={filters.paymentStatus}
+                    onChange={(e) => setFilters(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Payment Statuses</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="date"
+                      value={filters.dateRange.start}
+                      onChange={(e) => setFilters(prev => ({ 
+                        ...prev, 
+                        dateRange: { ...prev.dateRange, start: e.target.value }
+                      }))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="date"
+                      value={filters.dateRange.end}
+                      onChange={(e) => setFilters(prev => ({ 
+                        ...prev, 
+                        dateRange: { ...prev.dateRange, end: e.target.value }
+                      }))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        PO Number
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Vendor
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center">
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            <span className="ml-2 text-gray-600">Loading...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                          No purchase orders found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrders.map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {order.po_number || `PO-${order.id}`}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.vendor_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₹{order.total_amount?.toLocaleString() || '0'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPaymentStatusColor(order.payment_status)}`}>
+                              {order.payment_status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(order.po_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => {
+                                  setEditingOrder(order);
+                                  setShowForm(true);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(order.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Real-time Status */}
+        <div className="mt-6 text-center text-sm text-gray-500">
+          Last updated: {lastUpdated.toLocaleTimeString()}
+          {connectionStatus === 'reconnecting' && (
+            <span className="ml-2 text-yellow-600">Reconnecting...</span>
+          )}
+          {connectionStatus === 'disconnected' && (
+            <span className="ml-2 text-red-600">Disconnected</span>
+          )}
+        </div>
+
+        {/* Purchase Order Form Modal */}
+        <PurchaseOrderForm
+          isOpen={showForm}
+          onClose={() => {
+            setShowForm(false);
+            setEditingOrder(null);
+          }}
+          onSave={handleSave}
+          editingOrder={editingOrder}
+          vendors={vendors}
+          products={products}
+          taxes={taxes}
+        />
       </main>
     </div>
   );
 };
 
 export default PurchasesPage;
-
