@@ -5,18 +5,22 @@ import Sidebar from '@/components/sidebar';
 import axios from 'axios';
 
 interface PurchaseOrderItem {
-  product: string;
+  product: string; // product ID
   quantity: number;
   unit_price: number;
-  tax?: string;
+  tax?: string; // tax ID
 }
 
 interface PurchaseOrder {
   id: number;
-  vendor: string;
+  vendor: string; // vendor ID
+  vendor_name?: string;
   status: string;
   total_amount: number | string;
+  po_number?: string;
   po_date: string;
+  expected_delivery_date?: string;
+  notes?: string;
   items?: PurchaseOrderItem[];
 }
 
@@ -41,7 +45,7 @@ const PurchasesPage = () => {
 
   const token = localStorage.getItem('accessToken');
   const api = axios.create({
-    baseURL: 'http://localhost:8000/api/transactions/',
+    baseURL: 'http://127.0.0.1:8000/api/transactions/',
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -191,8 +195,8 @@ const PurchasesPage = () => {
               <tbody>
                 {purchaseOrders.map(po => (
                   <tr key={po.id} className="border-b">
-                    <td className="px-6 py-3">{po.id}</td>
-                    <td className="px-6 py-3">{po.vendor}</td>
+                    <td className="px-6 py-3">{po.po_number || po.id}</td>
+                    <td className="px-6 py-3">{po.vendor_name || po.vendor}</td>
                     <td className="px-6 py-3">${Number(po.total_amount ?? 0).toFixed(2)}</td>
                     <td className="px-6 py-3">{po.status}</td>
                     <td className="px-6 py-3">{po.po_date}</td>
@@ -234,7 +238,7 @@ const PurchasesPage = () => {
                       </select>
                       <input type="number" min={1} value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="w-20 px-2 py-1 border rounded-md" required />
                       <input type="number" min={0} step="0.01" value={item.unit_price} onChange={e => handleItemChange(idx, 'unit_price', e.target.value)} className="w-24 px-2 py-1 border rounded-md" required />
-                                            <select
+                      <select
                         value={item.tax || ''}
                         onChange={e => handleItemChange(idx, 'tax', e.target.value)}
                         className="w-28 px-2 py-1 border rounded-md"
@@ -244,37 +248,20 @@ const PurchasesPage = () => {
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-900 px-2"
-                        onClick={() => removeItem(idx)}
-                      >
-                        Remove
-                      </button>
+                      <button type="button" className="text-red-600 hover:text-red-900 px-2" onClick={() => removeItem(idx)}>Remove</button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    className="mt-2 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    onClick={addItem}
-                  >
+                  <button type="button" className="mt-2 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700" onClick={addItem}>
                     + Add Item
                   </button>
                 </div>
 
                 {/* Modal actions */}
                 <div className="mt-4 flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
-                    onClick={() => setShowModal(false)}
-                  >
+                  <button type="button" className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400" onClick={() => setShowModal(false)}>
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                     {editingOrder ? 'Update' : 'Create'}
                   </button>
                 </div>
@@ -288,4 +275,3 @@ const PurchasesPage = () => {
 };
 
 export default PurchasesPage;
-

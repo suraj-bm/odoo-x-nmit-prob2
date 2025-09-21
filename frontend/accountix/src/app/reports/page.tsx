@@ -28,7 +28,7 @@ const ReportsPage = () => {
 
   const token = localStorage.getItem('accessToken');
   const api = axios.create({
-    baseURL: 'http://localhost:8000/api/reports/',
+    baseURL: 'http://127.0.0.1:8000/api/reports/',
     headers: { Authorization: `Bearer ${token}` },
   });
 

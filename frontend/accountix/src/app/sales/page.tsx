@@ -31,10 +31,11 @@ interface SalesOrderItem {
 
 interface SalesOrder {
   id: number;
-  customer: string;
+  customer: number;   // FIX: was string
   status: string;
   total: number | string;
   date: string;
+  items?: SalesOrderItem[];
 }
 
 const SalesPage = () => {
@@ -48,7 +49,7 @@ const SalesPage = () => {
   const [editingOrder, setEditingOrder] = useState<SalesOrder | null>(null);
 
   const [form, setForm] = useState({
-    customer: '',
+    customer: 0, // FIX: number not string
     so_date: '',
     expected_delivery_date: '',
     notes: '',
@@ -57,7 +58,7 @@ const SalesPage = () => {
 
   const token = localStorage.getItem('accessToken');
   const api = axios.create({
-    baseURL: 'http://localhost:8000/api/transactions/',
+    baseURL: 'http://127.0.0.1:8000/api/transactions/',
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -109,7 +110,7 @@ const SalesPage = () => {
     } else {
       setEditingOrder(null);
       setForm({
-        customer: '',
+        customer: 0,
         so_date: '',
         expected_delivery_date: '',
         notes: '',
@@ -119,9 +120,9 @@ const SalesPage = () => {
     setShowModal(true);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+    setForm({ ...form, [name]: name === 'customer' ? Number(value) : value });
   };
 
   const handleItemChange = (index: number, field: string, value: any) => {
@@ -156,14 +157,14 @@ const SalesPage = () => {
           prev.map(order => (order.id === editingOrder.id ? res.data : order))
         );
       } else {
-        // Create (POST)
-        const res = await api.post('sales-orders/create/', form);
+        // Create (POST) FIX: correct endpoint
+        const res = await api.post('sales-orders/', form);
         setSalesOrders(prev => [...prev, res.data]);
       }
       setShowModal(false);
     } catch (err: any) {
       console.error(err.response?.data || err);
-      setError('Failed to save sales order.');
+      setError(JSON.stringify(err.response?.data, null, 2)); // better debugging
     }
   };
 
@@ -213,7 +214,7 @@ const SalesPage = () => {
         {loading ? (
           <p>Loading...</p>
         ) : error ? (
-          <p className="text-red-600">{error}</p>
+          <pre className="text-red-600 whitespace-pre-wrap">{error}</pre>
         ) : salesOrders.length === 0 ? (
           <p>No sales orders found.</p>
         ) : (
@@ -233,7 +234,9 @@ const SalesPage = () => {
                 {salesOrders.map(order => (
                   <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="py-4 px-4 font-medium text-indigo-600">{order.id}</td>
-                    <td className="py-4 px-4">{order.customer}</td>
+                    <td className="py-4 px-4">
+                      {customers.find(c => c.id === order.customer)?.name || order.customer}
+                    </td>
                     <td className="py-4 px-4">
                       <span
                         className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
@@ -266,7 +269,7 @@ const SalesPage = () => {
           </div>
         )}
 
-                {/* Modal */}
+        {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-3xl overflow-y-auto max-h-[90vh]">
@@ -283,7 +286,7 @@ const SalesPage = () => {
                   className="w-full px-3 py-2 border rounded-md"
                   required
                 >
-                  <option value="">Select Customer</option>
+                  <option value={0}>Select Customer</option>
                   {customers.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -328,7 +331,7 @@ const SalesPage = () => {
                         className="px-2 py-1 border rounded-md flex-1"
                         required
                       >
-                        <option value="">Select Product</option>
+                        <option value={0}>Select Product</option>
                         {products.map(p => (
                           <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
@@ -404,5 +407,3 @@ const SalesPage = () => {
 };
 
 export default SalesPage;
-
-        

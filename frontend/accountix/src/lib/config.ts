@@ -2,7 +2,7 @@
 
 export const config = {
   // API Configuration
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api',
   
   // App Configuration
   appName: process.env.NEXT_PUBLIC_APP_NAME || 'Shiv Accounts Cloud',

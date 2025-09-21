@@ -60,7 +60,7 @@ const DashboardPage = () => {
     }
 
     const api = axios.create({
-      baseURL: 'http://localhost:8000/api/transactions/',
+      baseURL: 'http://127.0.0.1:8000/api/transactions/',
       headers: { Authorization: `Bearer ${token}` },
     });
 

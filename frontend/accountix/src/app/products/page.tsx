@@ -47,7 +47,7 @@ const ProductsPage = () => {
     setLoading(true);
     try {
       const res = await api.get('/master/products/');
-      setProducts(Array.isArray(res.data) ? res.data : []);
+      setProducts(Array.isArray(res.data.results) ? res.data.results : []);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch products');
@@ -57,15 +57,15 @@ const ProductsPage = () => {
   };
 
   // Fetch categories
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get('/master/product-categories/');
-      setCategories(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to fetch categories');
-    }
-  };
+ const fetchCategories = async () => {
+  try {
+    const res = await api.get('/master/product-categories/');
+    setCategories(Array.isArray(res.data) ? res.data : []);
+  } catch (err) {
+    console.error(err);
+    setError('Failed to fetch categories');
+  }
+};
 
   useEffect(() => {
     fetchProducts();
@@ -73,37 +73,64 @@ const ProductsPage = () => {
   }, []);
 
   // Handle form input change
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+ // Handle form input change
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const { name, value, type } = e.target;
+
+  setForm({
+    ...form,
+    [name]: type === 'number' ? Number(value) : value,
+  });
+};
 
   // Add or Update Product
-  const handleSubmit = async () => {
-    try {
-      if (editingProduct) {
-        await api.put(`/master/products/${editingProduct.id}/`, form);
-      } else {
-        await api.post('/master/add-product/', form);
-      }
-      setShowModal(false);
-      setEditingProduct(null);
-      setForm({
-        name: '',
-        sku: '',
-        category: '',
-        sales_price: 0,
-        purchase_price: 0,
-        current_stock: 0,
-        minimum_stock: 0,
-        unit_of_measure: 'pcs',
-        is_active: true,
-      });
-      fetchProducts();
-    } catch (err) {
-      console.error(err);
-      setError('Failed to save product');
+// Add or Update Product
+const handleSubmit = async () => {
+  try {
+    const categoryObj = categories.find(c => c.name.toLowerCase() === form.category.toLowerCase());
+    const getCategoryIdByName = (name: string) => {
+      const category = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+      return category ? category.id : null;
     }
-  };
+    const payload = {
+      ...form,
+      category: getCategoryIdByName(form.category) || null,
+      sales_price: Number(form.sales_price),
+      purchase_price: Number(form.purchase_price),
+      current_stock: Number(form.current_stock),
+      minimum_stock: Number(form.minimum_stock),
+    };
+
+    if (editingProduct) {
+      await api.put(`/master/products/${editingProduct.id}/`, payload);
+    } else {
+      await api.post('/master/add-product/', payload);
+    }
+
+    setShowModal(false);
+    setEditingProduct(null);
+    setForm({
+      name: '',
+      sku: '',
+      category: '',
+      sales_price: 0,
+      purchase_price: 0,
+      current_stock: 0,
+      minimum_stock: 0,
+      unit_of_measure: 'pcs',
+      is_active: true,
+    });
+    fetchProducts();
+  } catch (err: any) {
+    console.error(err.response?.data || err.message);
+    setError(
+      err.response?.data?.name?.[0] || // e.g., "Contact with this name already exists."
+      err.response?.data?.sku?.[0] ||
+      'Failed to save product'
+    );
+  }
+};
+
 
   // Edit product
   const handleEdit = (product: Product) => {
@@ -190,7 +217,10 @@ const ProductsPage = () => {
                   <tr key={p.id} className="border-b">
                     <td className="px-6 py-3">{p.name}</td>
                     <td className="px-6 py-3">{p.sku}</td>
-                    <td className="px-6 py-3">{p.category_name}</td>
+                    <td className="px-6 py-3">
+  {categories.find(c => c.id === p.category)?.name || '-'}
+</td>
+
                     <td className="px-6 py-3">{p.sales_price}</td>
                     <td className="px-6 py-3">{p.purchase_price}</td>
                     <td className="px-6 py-3">{p.current_stock}</td>
@@ -225,75 +255,107 @@ const ProductsPage = () => {
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
               <div className="space-y-3">
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Product Name"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.name}
-                  onChange={handleChange}
-                />
-                <input
-                  type="text"
-                  name="sku"
-                  placeholder="SKU"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.sku}
-                  onChange={handleChange}
-                />
-                <select
-                  name="category"
-                  value={form.category}
-                  className="w-full px-3 py-2 border rounded-md"
-                  onChange={handleChange}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  name="sales_price"
-                  placeholder="Sales Price"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.sales_price}
-                  onChange={handleChange}
-                />
-                <input
-                  type="number"
-                  name="purchase_price"
-                  placeholder="Purchase Price"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.purchase_price}
-                  onChange={handleChange}
-                />
-                <input
-                  type="number"
-                  name="current_stock"
-                  placeholder="Current Stock"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.current_stock}
-                  onChange={handleChange}
-                />
-                <input
-                  type="number"
-                  name="minimum_stock"
-                  placeholder="Minimum Stock"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={form.minimum_stock}
-                  onChange={handleChange}
-                />
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={form.is_active}
-                    onChange={e => setForm({ ...form, is_active: e.target.checked })}
-                  />
-                  <label>Active</label>
-                </div>
-              </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Product Name</label>
+    <input
+      type="text"
+      name="name"
+      placeholder="Enter product name"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.name}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700">SKU</label>
+    <input
+      type="text"
+      name="sku"
+      placeholder="Enter SKU"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.sku}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div>
+  <label className="block text-sm font-medium text-gray-700">Category</label>
+  <input
+    type="text"
+    name="category"
+    placeholder="Enter or select category"
+    className="w-full px-3 py-2 border rounded-md"
+    list="category-list"
+    value={form.category}
+    onChange={handleChange}
+  />
+  <datalist id="category-list">
+    {categories.map(c => (
+      <option key={c.id} value={c.name} />
+    ))}
+  </datalist>
+</div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Sales Price</label>
+    <input
+      type="number"
+      name="sales_price"
+      placeholder="Enter sales price"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.sales_price}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Purchase Price</label>
+    <input
+      type="number"
+      name="purchase_price"
+      placeholder="Enter purchase price"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.purchase_price}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Current Stock</label>
+    <input
+      type="number"
+      name="current_stock"
+      placeholder="Enter current stock"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.current_stock}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Minimum Stock</label>
+    <input
+      type="number"
+      name="minimum_stock"
+      placeholder="Enter minimum stock"
+      className="w-full px-3 py-2 border rounded-md"
+      value={form.minimum_stock}
+      onChange={handleChange}
+    />
+  </div>
+
+  <div className="flex items-center space-x-2">
+    <input
+      type="checkbox"
+      name="is_active"
+      checked={form.is_active}
+      onChange={e => setForm({ ...form, is_active: e.target.checked })}
+    />
+    <label className="text-sm">Active</label>
+  </div>
+</div>
+
               <div className="mt-4 flex justify-end space-x-2">
                 <button
                   className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
