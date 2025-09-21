@@ -29,6 +29,8 @@ function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+ 
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,13 +99,15 @@ function LoginForm() {
 
 // ===================== REGISTER FORM =====================
 function RegisterForm() {
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'buyer',
-  });
+   const [formData, setFormData] = useState({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  role: 'contact',
+  phone: '',
+  address: '',
+});
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -241,6 +245,30 @@ function RegisterForm() {
 </select>
 
       </div>
+      <div>
+  <input
+    type="text"
+    name="phone"
+    placeholder="Phone Number"
+    value={formData.phone}
+    onChange={handleChange}
+    required
+    className="w-full px-3 py-2 border rounded-md"
+  />
+</div>
+
+<div>
+  <input
+    type="text"
+    name="address"
+    placeholder="Address"
+    value={formData.address}
+    onChange={handleChange}
+    required
+    className="w-full px-3 py-2 border rounded-md"
+  />
+</div>
+
 
       {error && <div className="text-red-600 text-sm text-center">{error}</div>}
       {success && <div className="text-green-600 text-sm text-center">{success}</div>}
