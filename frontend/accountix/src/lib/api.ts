@@ -78,7 +78,9 @@ class ApiClient {
     }
 
     try {
+      console.log('Making API request to:', url);
       const response = await fetch(url, config);
+      console.log('API response status:', response.status);
       
       if (!response.ok) {
         let errorData = {};
@@ -111,9 +113,19 @@ class ApiClient {
       const data = await response.json();
       return data;
     } catch (error) {
+      console.error('API request failed:', error);
       if (error instanceof ApiError) {
         throw error;
       }
+      
+      // Handle network errors
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new ApiError(
+          'Unable to connect to the server. Please check if the backend is running and try again.',
+          0
+        );
+      }
+      
       throw new ApiError(
         error instanceof Error ? error.message : 'An unknown error occurred',
         0

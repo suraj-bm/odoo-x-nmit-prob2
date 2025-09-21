@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fff;
+        }
+        
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .company-info h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .company-info p {
+            color: #7f8c8d;
+            margin: 2px 0;
+        }
+        
+        .invoice-details {
+            text-align: right;
+        }
+        
+        .invoice-details h2 {
+            color: #e74c3c;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .invoice-details p {
+            margin: 3px 0;
+            color: #555;
+        }
+        
+        .customer-info {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .customer-info h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .items-table th {
+            background: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        .items-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .items-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .items-table tr:hover {
+            background: #e8f4f8;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .totals {
+            margin-left: auto;
+            width: 300px;
+        }
+        
+        .totals table {
+            width: 100%;
+        }
+        
+        .totals td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .totals .total-row {
+            font-weight: bold;
+            font-size: 18px;
+            background: #ecf0f1;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #7f8c8d;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-draft { background: #f39c12; color: white; }
+        .status-sent { background: #3498db; color: white; }
+        .status-paid { background: #27ae60; color: white; }
+        .status-overdue { background: #e74c3c; color: white; }
+        .status-cancelled { background: #95a5a6; color: white; }
+        
+        @media print {
+            body { margin: 0; }
+            .invoice-container { max-width: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="company-info">
+                <h1>{{ company_name }}</h1>
+                <p>{{ company_address }}</p>
+                <p>Phone: {{ company_phone }}</p>
+                <p>Email: {{ company_email }}</p>
+            </div>
+            <div class="invoice-details">
+                <h2>INVOICE</h2>
+                <p><strong>Invoice #:</strong> {{ invoice.invoice_number }}</p>
+                <p><strong>Date:</strong> {{ invoice.invoice_date|date:"M d, Y" }}</p>
+                <p><strong>Due Date:</strong> {{ invoice.due_date|date:"M d, Y" }}</p>
+                {% if invoice.sales_order %}
+                <p><strong>SO #:</strong> {{ invoice.sales_order.so_number }}</p>
+                {% endif %}
+                <p><strong>Status:</strong> 
+                    <span class="status-badge status-{{ invoice.status }}">
+                        {{ invoice.status|title }}
+                    </span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Customer Information -->
+        <div class="customer-info">
+            <h3>Bill To:</h3>
+            <p><strong>{{ customer.name }}</strong></p>
+            {% if customer.address %}
+            <p>{{ customer.address }}</p>
+            {% endif %}
+            {% if customer.phone %}
+            <p>Phone: {{ customer.phone }}</p>
+            {% endif %}
+            {% if customer.email %}
+            <p>Email: {{ customer.email }}</p>
+            {% endif %}
+        </div>
+        
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Description</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Tax</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.product.description|default:"" }}</td>
+                    <td class="text-center">{{ item.quantity }}</td>
+                    <td class="text-right">${{ item.unit_price|floatformat:2 }}</td>
+                    <td class="text-right">${{ item.tax_amount|floatformat:2 }}</td>
+                    <td class="text-right">${{ item.line_total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Totals -->
+        <div class="totals">
+            <table>
+                <tr>
+                    <td><strong>Subtotal:</strong></td>
+                    <td class="text-right">${{ invoice.subtotal|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Tax:</strong></td>
+                    <td class="text-right">${{ invoice.tax_amount|floatformat:2 }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td><strong>Total:</strong></td>
+                    <td class="text-right">${{ invoice.total_amount|floatformat:2 }}</td>
+                </tr>
+                {% if invoice.paid_amount > 0 %}
+                <tr>
+                    <td><strong>Paid:</strong></td>
+                    <td class="text-right">${{ invoice.paid_amount|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Balance:</strong></td>
+                    <td class="text-right">${{ invoice.balance_amount|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        
+        <!-- Notes -->
+        {% if invoice.notes %}
+        <div style="margin-top: 30px;">
+            <h3>Notes:</h3>
+            <p>{{ invoice.notes }}</p>
+        </div>
+        {% endif %}
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>This invoice was generated on {{ "now"|date:"M d, Y \a\t g:i A" }}</p>
+        </div>
+    </div>
+</body>
+</html>

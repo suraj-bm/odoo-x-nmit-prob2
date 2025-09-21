@@ -6,15 +6,70 @@ import { useRouter } from 'next/navigation';
 
 export default function AuthForms() {
   const [isLogin, setIsLogin] = useState(true);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (but wait for auth to load)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && isAuthenticated) {
       router.push('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, show option to logout and login with different account
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Already Logged In</h2>
+            <p className="text-gray-600 mb-6">
+              You are already logged in. Would you like to continue to the dashboard or logout and login with a different account?
+            </p>
+            <div className="space-y-4">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Go to Dashboard
+              </button>
+              <button
+                onClick={logout}
+                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Logout and Login with Different Account
+              </button>
+              <button
+                onClick={() => {
+                  // Clear all tokens and reload
+                  localStorage.removeItem('auth_token');
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('refresh_token');
+                  localStorage.removeItem('refreshToken');
+                  window.location.reload();
+                }}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Clear Session and Start Fresh
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

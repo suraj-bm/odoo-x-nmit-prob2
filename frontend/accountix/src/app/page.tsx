@@ -1,8 +1,12 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import Link from 'next/link';
 
 const Home= () => {
+    const { isAuthenticated, user, logout, loading: authLoading } = useAuth();
+
     // Helper component for feature cards
     const Feature = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
         <div className="bg-white p-6 rounded-lg shadow-sm text-center">
@@ -26,10 +30,31 @@ const Home= () => {
                         <a href="#contact" className="text-gray-600 hover:text-indigo-600">Contact</a>
                     </nav>
                     <div>
-                        <a href="/loginpage" className="text-gray-600 hover:text-indigo-600 mr-4">Login</a>
-                        <a href="/loginpage" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
-                            Sign Up
-                        </a>
+                        {authLoading ? (
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                        ) : isAuthenticated ? (
+                            <div className="flex items-center space-x-4">
+                                <span className="text-gray-600">Welcome, {user?.username || 'User'}</span>
+                                <Link href="/dashboard" className="text-gray-600 hover:text-indigo-600 mr-4">
+                                    Dashboard
+                                </Link>
+                                <button
+                                    onClick={logout}
+                                    className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <Link href="/loginpage" className="text-gray-600 hover:text-indigo-600 mr-4">
+                                    Login
+                                </Link>
+                                <Link href="/loginpage" className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
+                                    Sign Up
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -44,9 +69,12 @@ const Home= () => {
                         <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
                             Shiv Accounts helps you manage your finances effortlessly with intuitive tools for invoicing, expense tracking, and real-time reporting.
                         </p>
-                        <a href="#" className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-colors text-lg">
-                            Get Started for Free
-                        </a>
+                        <Link 
+                            href={isAuthenticated ? "/dashboard" : "/loginpage"} 
+                            className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-colors text-lg"
+                        >
+                            {isAuthenticated ? "Go to Dashboard" : "Get Started for Free"}
+                        </Link>
                     </div>
                 </section>
 

@@ -5,6 +5,11 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.db.models import Sum
+import uuid
+from datetime import datetime, timedelta
 from .models import PurchaseOrder, PurchaseOrderItem, VendorBill
 from .sales_models import SalesOrder, SalesOrderItem, CustomerInvoice
 from .payment_models import Payment
@@ -158,6 +163,81 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(so)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def generate_invoice(self, request, pk=None):
+        """Generate an invoice from a sales order"""
+        so = self.get_object()
+        
+        if so.status not in ['confirmed', 'partially_delivered', 'delivered']:
+            return Response(
+                {'error': 'Only confirmed, partially delivered, or delivered sales orders can be invoiced'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if invoice already exists
+        existing_invoice = CustomerInvoice.objects.filter(sales_order=so).first()
+        if existing_invoice:
+            return Response(
+                {'error': 'Invoice already exists for this sales order', 'invoice_id': existing_invoice.id},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generate invoice number
+        invoice_number = f"INV-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+        
+        # Calculate due date (30 days from invoice date)
+        invoice_date = timezone.now().date()
+        due_date = invoice_date + timedelta(days=30)
+        
+        # Create invoice
+        invoice = CustomerInvoice.objects.create(
+            invoice_number=invoice_number,
+            sales_order=so,
+            customer=so.customer,
+            invoice_date=invoice_date,
+            due_date=due_date,
+            subtotal=so.subtotal,
+            tax_amount=so.tax_amount,
+            total_amount=so.total_amount,
+            balance_amount=so.total_amount,
+            notes=so.notes,
+            created_by=request.user
+        )
+        
+        serializer = CustomerInvoiceSerializer(invoice)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['get'])
+    def invoice_pdf(self, request, pk=None):
+        """Generate PDF for sales order invoice"""
+        so = self.get_object()
+        
+        # Get or create invoice
+        invoice = CustomerInvoice.objects.filter(sales_order=so).first()
+        if not invoice:
+            return Response(
+                {'error': 'No invoice found for this sales order'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Prepare context for PDF template
+        context = {
+            'invoice': invoice,
+            'sales_order': so,
+            'customer': so.customer,
+            'items': so.sales_order_items.all(),
+            'company_name': 'Shiv Accounts Cloud',
+            'company_address': '123 Business Street, City, State 12345',
+            'company_phone': '+1 (555) 123-4567',
+            'company_email': 'info@shivaccounts.com',
+        }
+        
+        # Render HTML template
+        html_string = render_to_string('invoice_template.html', context)
+        
+        # For now, return HTML (you can add PDF generation later with weasyprint or reportlab)
+        return HttpResponse(html_string, content_type='text/html')
 
 
 class SalesOrderItemViewSet(viewsets.ModelViewSet):
@@ -201,6 +281,29 @@ class CustomerInvoiceViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(invoice)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def pdf(self, request, pk=None):
+        """Generate PDF for customer invoice"""
+        invoice = self.get_object()
+        
+        # Prepare context for PDF template
+        context = {
+            'invoice': invoice,
+            'sales_order': invoice.sales_order,
+            'customer': invoice.customer,
+            'items': invoice.sales_order.sales_order_items.all() if invoice.sales_order else [],
+            'company_name': 'Shiv Accounts Cloud',
+            'company_address': '123 Business Street, City, State 12345',
+            'company_phone': '+1 (555) 123-4567',
+            'company_email': 'info@shivaccounts.com',
+        }
+        
+        # Render HTML template
+        html_string = render_to_string('invoice_template.html', context)
+        
+        # For now, return HTML (you can add PDF generation later with weasyprint or reportlab)
+        return HttpResponse(html_string, content_type='text/html')
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
