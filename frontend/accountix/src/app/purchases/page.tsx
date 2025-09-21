@@ -386,15 +386,15 @@ const PurchasesPage = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Purchase Orders</h1>
-            <p className="text-gray-600 mt-1">
-              Manage your purchase orders and vendor relationships
+            <div className="flex items-center mt-1">
+              <p className="text-gray-600">Manage your purchase orders and vendor relationships</p>
               {isLive && (
                 <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></span>
                   Live
                 </span>
               )}
-            </p>
+            </div>
           </div>
           
           <div className="mt-4 lg:mt-0 flex flex-wrap items-center gap-3">
