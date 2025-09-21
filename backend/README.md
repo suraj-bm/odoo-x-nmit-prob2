@@ -101,8 +101,8 @@ A production-grade Django backend for a cloud-based accounting system built with
 ## API Documentation
 
 Once the server is running, you can access the API documentation at:
-- Swagger UI: `http://localhost:8000/swagger/`
-- ReDoc: `http://localhost:8000/redoc/`
+- Swagger UI: `http://127.0.0.1:8000/swagger/`
+- ReDoc: `http://127.0.0.1:8000/redoc/`
 
 ## User Roles
 

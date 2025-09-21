@@ -39,7 +39,7 @@ A modern Next.js frontend for the Shiv Accounts Cloud accounting system, built w
 2. **Set up environment variables**
    Create a `.env.local` file in the root directory:
    ```env
-   NEXT_PUBLIC_API_URL=http://localhost:8000/api
+   NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
    NEXT_PUBLIC_APP_NAME=Shiv Accounts Cloud
    NEXT_PUBLIC_APP_VERSION=1.0.0
    ```

@@ -38,7 +38,7 @@ interface APIResponse {
   const fetchAccounts = async () => {
   setLoading(true);
   try {
-    const res = await axios.get('http://localhost:8000/api/master/chart-of-accounts/', {
+    const res = await axios.get('http://127.0.0.1:8000/api/master/chart-of-accounts/', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -55,7 +55,7 @@ interface APIResponse {
   const handleAddAccount = async () => {
     try {
       const res = await axios.post(
-        'http://localhost:8000/api/master/chart-of-accounts/',
+        'http://127.0.0.1:8000/api/master/chart-of-accounts/',
         newAccount,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -78,7 +78,7 @@ interface APIResponse {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this account?')) return;
     try {
-      await axios.delete(`http://localhost:8000/api/master/chart-of-accounts/${id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/master/chart-of-accounts/${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setAccounts((prev) => prev.filter((a) => a.id !== id));

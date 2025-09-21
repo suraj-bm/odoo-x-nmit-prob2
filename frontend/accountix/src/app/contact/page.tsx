@@ -27,20 +27,24 @@ const ContactsPage = () => {
 
   // Fetch contacts from API
   const fetchContacts = async () => {
-    try {
-      const res = await api.get("/master/contacts/");
-      if (Array.isArray(res.data)) {
-        setContacts(res.data);
-      } else {
-        console.warn("Expected array but got:", res.data);
-        setContacts([]);
-      }
-    } catch (err) {
-      console.error("Error fetching contacts:", err);
-    } finally {
-      setLoading(false);
+  try {
+    const res = await api.get("/master/contacts/");
+    if (Array.isArray(res.data)) {
+      // Non-paginated response
+      setContacts(res.data);
+    } else if (res.data.results && Array.isArray(res.data.results)) {
+      // Paginated response
+      setContacts(res.data.results);
+    } else {
+      console.warn("Unexpected API response:", res.data);
+      setContacts([]);
     }
-  };
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchContacts();
@@ -53,21 +57,23 @@ const ContactsPage = () => {
 
   // Create or Update contact
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingContact) {
-        await api.put(`/master/contacts/${editingContact.id}/`, form);
-      } else {
-        await api.post("/master/contacts/", form);
-      }
-      setForm({ name: "", contact_type: "customer", email: "", phone: "" });
-      setEditingContact(null);
-      setShowForm(false);
-      fetchContacts();
-    } catch (err) {
-      console.error("Error saving contact:", err);
+  e.preventDefault();
+  try {
+    if (editingContact) {
+      await api.put(`/master/contacts/${editingContact.id}/`, form);
+    } else {
+      await api.post("/master/contacts/", form);
     }
-  };
+    setForm({ name: "", contact_type: "customer", email: "", phone: "" });
+    setEditingContact(null);
+    setShowForm(false);
+    fetchContacts();
+  } catch (err: any) {
+    console.error("Error saving contact:", err.response?.data || err.message);
+    alert("Error: " + JSON.stringify(err.response?.data || err.message));
+  }
+};
+
 
   // Delete contact
   const handleDelete = async (id: number) => {
