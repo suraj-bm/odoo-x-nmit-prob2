@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import Link from 'next/link';
 
 interface SidebarProps {
-  activePage: 'dashboard' | 'contact' | 'products' | 'taxes' | 'accounts' | 'purchases' | 'sales' | 'invoices' | 'reports';
+  activePage: 'dashboard' | 'contact' | 'customers' | 'products' | 'taxes' | 'accounts' | 'purchases' | 'sales' | 'invoices' | 'reports';
 }
 
 interface UserProfile {
@@ -25,7 +25,7 @@ interface NavItem {
 // Navigation items with icons
 const navigationItems: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊', activePage: 'dashboard' },
-  { name: 'Contacts', href: '/contact', icon: '👥', activePage: 'contact' },
+  { name: 'Customers', href: '/customers', icon: '👥', activePage: 'customers' },
   { name: 'Products', href: '/products', icon: '📦', activePage: 'products' },
   { name: 'Purchases', href: '/purchases', icon: '🛒', activePage: 'purchases' },
   { name: 'Sales', href: '/sales', icon: '💰', activePage: 'sales' },
@@ -39,7 +39,7 @@ const navigationItems: NavItem[] = [
 const navigationGroups = [
   {
     title: 'Main',
-    items: navigationItems.filter(item => ['dashboard', 'contact'].includes(item.activePage))
+    items: navigationItems.filter(item => ['dashboard', 'customers'].includes(item.activePage))
   },
   {
     title: 'Transactions',

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiClient } from '@/lib/api';
 
 interface Customer {
@@ -9,6 +9,8 @@ interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  contact_type?: string;
+  city?: string;
 }
 
 interface SalesOrder {
@@ -122,6 +124,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       }));
     }
   }, [salesOrders]);
+
+  // Filter customers based on contact type
+  const availableCustomers = useMemo(() => {
+    return customers.filter(customer => 
+      customer.contact_type === 'customer' || customer.contact_type === 'both'
+    );
+  }, [customers]);
 
   // Add item to invoice
   const addItem = () => {
@@ -283,9 +292,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 }`}
               >
                 <option value="">Select Customer</option>
-                {customers.map(customer => (
+                {availableCustomers.map((customer: Customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name} {customer.email && `(${customer.email})`}
+                    {customer.city && ` - ${customer.city}`}
                   </option>
                 ))}
               </select>
