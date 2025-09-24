@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function AuthForms() {
   const [isLogin, setIsLogin] = useState(true);
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated (but wait for auth to load)
+  // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Show loading while checking authentication
+  // Show loading spinner
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -28,51 +28,37 @@ export default function AuthForms() {
     );
   }
 
-  // If already authenticated, show option to logout and login with different account
+  // If already logged in
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Already Logged In</h2>
-            <p className="text-gray-600 mb-6">
-              You are already logged in. Would you like to continue to the dashboard or logout and login with a different account?
-            </p>
-            <div className="space-y-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Go to Dashboard
-              </button>
-              <button
-                onClick={logout}
-                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Logout and Login with Different Account
-              </button>
-              <button
-                onClick={() => {
-                  // Clear all tokens and reload
-                  localStorage.removeItem('auth_token');
-                  localStorage.removeItem('accessToken');
-                  localStorage.removeItem('refresh_token');
-                  localStorage.removeItem('refreshToken');
-                  window.location.reload();
-                }}
-                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Clear Session and Start Fresh
-              </button>
-            </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Already Logged In</h2>
+          <p className="text-gray-600 mb-6">
+            You’re already logged in. Continue to dashboard or logout.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={logout}
+              className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
+  // Show login/register forms
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
       <div className="max-w-md w-full space-y-8">
         {isLogin ? <LoginForm /> : <RegisterForm />}
         <div className="text-center mt-4">
@@ -82,7 +68,7 @@ export default function AuthForms() {
           >
             {isLogin
               ? "Don't have an account? Register"
-              : 'Already have an account? Login'}
+              : "Already have an account? Login"}
           </button>
         </div>
       </div>
@@ -92,64 +78,50 @@ export default function AuthForms() {
 
 // ===================== LOGIN FORM =====================
 function LoginForm() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { login, loading } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     try {
       await login(username, password);
-      // Wait a moment for state to update, then redirect
-      console.log('Login completed, waiting for state update...');
-      setTimeout(() => {
-        console.log('Redirecting to dashboard...');
-        router.push('/dashboard');
-      }, 100);
-    } catch (err) {
-      setError('Login failed. Please check your credentials.');
+      router.push("/dashboard");
+    } catch {
+      setError("Login failed. Please check your credentials.");
     }
   };
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <h2 className="text-center text-2xl font-bold text-gray-900">Login</h2>
-
-      <div>
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          maxLength={150}
-          className="w-full px-3 py-2 border rounded-md"
-        />
-      </div>
-      <div>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="w-full px-3 py-2 border rounded-md"
-        />
-      </div>
-
-      {error && <div className="text-red-600 text-sm text-center">{error}</div>}
-
+      <input
+        type="text"
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      {error && <p className="text-red-600 text-sm text-center">{error}</p>}
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
       >
-        {loading ? 'Signing in...' : 'Sign in'}
+        {loading ? "Signing in..." : "Sign in"}
       </button>
     </form>
   );
@@ -157,186 +129,115 @@ function LoginForm() {
 
 // ===================== REGISTER FORM =====================
 function RegisterForm() {
-   const [formData, setFormData] = useState({
-  username: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-  role: 'contact' as 'admin' | 'invoicing_user' | 'contact',
-  phone: '',
-  address: '',
-});
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "contact" as "admin" | "invoicing_user" | "contact",
+    phone: "",
+    address: "",
+  });
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [error, setError] = useState("");
   const { register, loading } = useAuth();
 
-  // Check username availability
-  useEffect(() => {
-    const checkUsername = async () => {
-      if (formData.username.length < 3) {
-        setUsernameAvailable(null);
-        return;
-      }
-      try {
-        const res = await fetch(
-          `http://127.0.0.1:8000/api/users/check-username/?username=${formData.username}`
-        );
-        const data = await res.json();
-        setUsernameAvailable(data.available);
-      } catch {
-        setUsernameAvailable(null);
-      }
-    };
-
-    const delayDebounce = setTimeout(checkUsername, 500); // wait 0.5s after typing
-    return () => clearTimeout(delayDebounce);
-  }, [formData.username]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (usernameAvailable === false) {
-      setError('Username is already taken');
+      setError("Passwords do not match");
       return;
     }
 
     try {
-      await register({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        password_confirm: formData.confirmPassword,
-        first_name: formData.username, // Using username as first name for simplicity
-        last_name: '',
-        role: formData.role,
-        phone: formData.phone,
-        address: formData.address,
-      });
-      // Redirect is handled in the AuthContext
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+      await register(formData); // <-- extended register in AuthContext
+    } catch {
+      setError("Registration failed. Please try again.");
     }
   };
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <h2 className="text-center text-2xl font-bold text-gray-900">Register</h2>
+      <input
+        type="text"
+        name="username"
+        placeholder="Username"
+        value={formData.username}
+        onChange={handleChange}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <input
+        type="email"
+        name="email"
+        placeholder="Email address"
+        value={formData.email}
+        onChange={handleChange}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <input
+        type="password"
+        name="password"
+        placeholder="Password"
+        value={formData.password}
+        onChange={handleChange}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <input
+        type="password"
+        name="confirmPassword"
+        placeholder="Confirm Password"
+        value={formData.confirmPassword}
+        onChange={handleChange}
+        required
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <select
+        name="role"
+        value={formData.role}
+        onChange={handleChange}
+        className="w-full px-3 py-2 border rounded-md"
+      >
+        <option value="admin">Admin</option>
+        <option value="invoicing_user">Invoicing User</option>
+        <option value="contact">Customer</option>
+      </select>
+      <input
+        type="text"
+        name="phone"
+        placeholder="Phone Number"
+        value={formData.phone}
+        onChange={handleChange}
+        className="w-full px-3 py-2 border rounded-md"
+      />
+      <input
+        type="text"
+        name="address"
+        placeholder="Address"
+        value={formData.address}
+        onChange={handleChange}
+        className="w-full px-3 py-2 border rounded-md"
+      />
 
-      <div>
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={formData.username}
-          onChange={handleChange}
-          required
-          maxLength={150}
-          className="w-full px-3 py-2 border rounded-md"
-        />
-        {usernameAvailable === false && (
-          <div className="text-red-600 text-sm mt-1">Username is already taken</div>
-        )}
-        {usernameAvailable === true && (
-          <div className="text-green-600 text-sm mt-1">Username is available</div>
-        )}
-      </div>
-
-      <div>
-        <input
-          type="email"
-          name="email"
-          placeholder="Email address"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          className="w-full px-3 py-2 border rounded-md"
-        />
-      </div>
-
-      <div>
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-          className="w-full px-3 py-2 border rounded-md"
-        />
-      </div>
-
-      <div>
-        <input
-          type="password"
-          name="confirmPassword"
-          placeholder="Confirm Password"
-          value={formData.confirmPassword}
-          onChange={handleChange}
-          required
-          className="w-full px-3 py-2 border rounded-md"
-        />
-      </div>
-
-      <div>
-        <select
-  name="role"
-  value={formData.role}
-  onChange={handleChange}
-  className="w-full px-3 py-2 border rounded-md"
->
-  <option value="admin">Admin</option>
-  <option value="invoicing_user">Invoicing User</option>
-  <option value="contact">Customer</option>
-</select>
-
-      </div>
-      <div>
-  <input
-    type="text"
-    name="phone"
-    placeholder="Phone Number"
-    value={formData.phone}
-    onChange={handleChange}
-    required
-    className="w-full px-3 py-2 border rounded-md"
-  />
-</div>
-
-<div>
-  <input
-    type="text"
-    name="address"
-    placeholder="Address"
-    value={formData.address}
-    onChange={handleChange}
-    required
-    className="w-full px-3 py-2 border rounded-md"
-  />
-</div>
-
-
-      {error && <div className="text-red-600 text-sm text-center">{error}</div>}
-      {success && <div className="text-green-600 text-sm text-center">{success}</div>}
+      {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
       >
-        {loading ? 'Registering...' : 'Register'}
+        {loading ? "Registering..." : "Register"}
       </button>
     </form>
   );
