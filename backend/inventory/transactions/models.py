@@ -59,21 +59,17 @@ class SalesOrder(models.Model):
         Contact, limit_choices_to={'type__in': ['customer', 'both']}, on_delete=models.CASCADE
     )
     order_date = models.DateField(default=timezone.now)
-    status = models.CharField(max_length=20, default='draft')  # draft, confirmed, delivered
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)  # ✅ Add here
+    status = models.CharField(max_length=20, default='draft')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def calculate_total(self):
         total = sum([item.total for item in self.items.all()])
         self.total_amount = total
         return total
 
-    def save(self, *args, **kwargs):
-        # ✅ Update total_amount whenever the SalesOrder is saved
-        self.calculate_total()
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return f"SO-{self.id} ({self.customer.name})"
+
 
 
 
