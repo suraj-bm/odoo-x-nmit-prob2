@@ -178,7 +178,7 @@ export default function ContactsPage() {
                 <tbody>
                   {customerContacts.map((c) => (
                     <tr key={c.id} className="border-t">
-                      <td className="p-2">{c.id}</td>  {/* ← show ID */}  
+                      <td className="p-2">{c.id}</td>   
                       <td className="p-2">{c.name}</td>
                       <td className="p-2">{c.email || "-"}</td>
                       <td className="p-2">{c.mobile || "-"}</td>
@@ -209,7 +209,7 @@ export default function ContactsPage() {
                 <tbody>
                   {vendorContacts.map((c) => (
                     <tr key={c.id} className="border-t">
-                      <td className="p-2">{c.id}</td>  {/* ← show ID */}
+                      <td className="p-2">{c.id}</td>  
                       <td className="p-2">{c.name}</td>
                       <td className="p-2">{c.email || "-"}</td>
                       <td className="p-2">{c.mobile || "-"}</td>
